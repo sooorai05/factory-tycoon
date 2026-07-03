@@ -104,6 +104,7 @@
   <button class="hudBtn" id="btnAch">🏆 実績</button>
   <button class="hudBtn" id="btnShop">🛒 ショップ</button>
   <button class="hudBtn" id="btnSave">💾 セーブ</button>
+  <button class="hudBtn" id="btnOpt">⚙️ 設定</button>
 </div>
 
 <div id="wrap"><canvas id="cv"></canvas></div>
@@ -183,6 +184,7 @@ function newState(){
     facLv: 1,
     ach: {},
     stats: {itemsSold: 0},
+    opt: {bgm: true, sfx: true},
     last: Date.now(),
   };
 }
@@ -197,6 +199,7 @@ function migrate(s){
   if(!s.ach) s.ach = {};
   if(!s.stats) s.stats = {itemsSold:0};
   if(s.stats.itemsSold == null) s.stats.itemsSold = 0;
+  if(!s.opt) s.opt = {bgm:true, sfx:true};
   return s;
 }
 function facSlots(){ return FAC[S.facLv].slots; }
@@ -279,8 +282,67 @@ function resetActors(){
   for(let i=0;i<S.workers;i++) spawnWorker(i);
 }
 function spawnWorker(i){
-  workers.push({x:460+((i*53)%80), y:255+((i*37)%60), tx:0, ty:0, state:"idle", slot:-1, carryN:0, carryV:0, walk:0, face:1, wait:Math.random()});
+  workers.push({x:460+((i*53)%80), y:255+((i*37)%60), tx:0, ty:0, state:"idle", slot:-1, carryN:0, carryV:0, walk:0, face:1, wait:Math.random(), spd:100+Math.random()*35});
 }
+
+// ---------- サウンド(Web Audioで生成・外部ファイル不要) ----------
+let ac = null, sfxGain = null, bgmGain = null, bgmInt = null, bgmStep = 0, bgmNext = 0;
+function audioInit(){
+  if(ac){ if(ac.state === "suspended") ac.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return;
+  ac = new AC();
+  sfxGain = ac.createGain(); sfxGain.gain.value = 0.9; sfxGain.connect(ac.destination);
+  bgmGain = ac.createGain(); bgmGain.gain.value = 0.55; bgmGain.connect(ac.destination);
+}
+function tone(dest, freq, dur, type, vol, when, slideTo){
+  const t0 = ac.currentTime + Math.max(0, when || 0);
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g); g.connect(dest);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function sfx(name){
+  if(!S || !S.opt || !S.opt.sfx) return;
+  audioInit(); if(!ac) return;
+  switch(name){
+    case "collect": tone(sfxGain, 620, 0.08, "square", 0.10, 0, 930); break;
+    case "sell":    tone(sfxGain, 880, 0.09, "sine", 0.22); tone(sfxGain, 1318, 0.14, "sine", 0.20, 0.07); break;
+    case "buy":     tone(sfxGain, 240, 0.14, "triangle", 0.30, 0, 150); break;
+    case "upgrade": tone(sfxGain, 440, 0.16, "sawtooth", 0.12, 0, 900); break;
+    case "hire":    tone(sfxGain, 523, 0.08, "square", 0.12); tone(sfxGain, 659, 0.10, "square", 0.12, 0.08); break;
+    case "ach":     [523,659,784,1046].forEach((f,k)=>tone(sfxGain, f, 0.16, "triangle", 0.20, k*0.09)); break;
+    case "expand":  [392,523,659,784,1046,1318].forEach((f,k)=>tone(sfxGain, f, 0.20, "triangle", 0.20, k*0.10)); break;
+  }
+}
+// BGM:かんたんチップチューンのループ
+const BGM_BASS = [131,131,98,98,110,110,87,98];
+const BGM_MEL  = [523,0,659,0, 784,0,659,523, 587,0,523,587, 659,0,0,0,
+                  523,0,659,784, 880,0,784,659, 587,659,523,440, 523,0,0,0];
+const BGM_STEP = 0.15;
+function bgmSchedule(){
+  while(bgmNext < ac.currentTime + 0.35){
+    const s = bgmStep % 32;
+    if(s % 4 === 0) tone(bgmGain, BGM_BASS[(s/4)|0], 0.5, "triangle", 0.10, bgmNext - ac.currentTime);
+    const f = BGM_MEL[s];
+    if(f) tone(bgmGain, f, 0.14, "square", 0.045, bgmNext - ac.currentTime);
+    bgmStep++; bgmNext += BGM_STEP;
+  }
+}
+function startBgm(){
+  if(!S || !S.opt || !S.opt.bgm) return;
+  audioInit(); if(!ac || bgmInt) return;
+  bgmStep = 0; bgmNext = ac.currentTime + 0.1;
+  bgmSchedule();
+  bgmInt = setInterval(bgmSchedule, 120);
+}
+function stopBgm(){ if(bgmInt){ clearInterval(bgmInt); bgmInt = null; } }
+// ブラウザの自動再生制限のため、最初の操作で音を開始する
+addEventListener("pointerdown", ()=>{ audioInit(); startBgm(); });
+addEventListener("keydown", ()=>{ audioInit(); startBgm(); });
 
 // ---------- UI ----------
 const $$ = id => document.getElementById(id);
@@ -314,6 +376,7 @@ function checkAch(){
       S.ach[a.id] = true;
       S.money += a.reward;
       toast(`🏆 実績解除「${a.name}」 +¥${fmt(a.reward)}`, true);
+      sfx("ach");
       confetti(W/2, H/2 - 40, 70);
       save();
     }
@@ -369,12 +432,13 @@ window.buyExpand = function(){
   S.money -= nx.cost;
   S.facLv++;
   toast(`🏗️ 工場を拡張!「${FAC[S.facLv].name}」になった!`, true);
+  sfx("expand");
   confetti(W/2, H/2, 120);
   save(); refreshShop(); updateHud();
 };
-window.buyCap = function(){ const c=capUpCost(); if(S.money<c) return; S.money-=c; S.capLv++; toast("🎒 運搬キャパUP!"); save(); refreshShop(); updateHud(); };
-window.buySpd = function(){ const c=spdUpCost(); if(S.money<c) return; S.money-=c; S.spdLv++; toast("👟 スピードUP!"); save(); refreshShop(); updateHud(); };
-window.buyWorker = function(){ const c=workerCost(); if(S.money<c) return; S.money-=c; S.workers++; spawnWorker(S.workers); toast("👷 作業員を雇った!"); save(); refreshShop(); updateHud(); };
+window.buyCap = function(){ const c=capUpCost(); if(S.money<c) return; S.money-=c; S.capLv++; toast("🎒 運搬キャパUP!"); sfx("upgrade"); save(); refreshShop(); updateHud(); };
+window.buySpd = function(){ const c=spdUpCost(); if(S.money<c) return; S.money-=c; S.spdLv++; toast("👟 スピードUP!"); sfx("upgrade"); save(); refreshShop(); updateHud(); };
+window.buyWorker = function(){ const c=workerCost(); if(S.money<c) return; S.money-=c; S.workers++; spawnWorker(S.workers); toast("👷 作業員を雇った!"); sfx("hire"); save(); refreshShop(); updateHud(); };
 window.buyMachine = function(t, slot){
   if(slot<0 || slot>=facSlots() || S.slots[slot]) slot = S.slots.findIndex((s,i)=>!s && i<facSlots());
   if(slot<0) return;
@@ -383,6 +447,7 @@ window.buyMachine = function(t, slot){
   S.money -= c;
   S.slots[slot] = {t, lv:1, buf:0, timer:0};
   toast(`${TYPES[t].ic} ${TYPES[t].name}を設置!`);
+  sfx("buy");
   save(); closeModal(); updateHud();
 };
 window.upgradeMachine = function(i){
@@ -391,6 +456,7 @@ window.upgradeMachine = function(i){
   if(S.money<c) return;
   S.money -= c; m.lv++;
   toast(`⬆️ ${TYPES[m.t].name} Lv${m.lv}!`);
+  sfx("upgrade");
   save(); openSlotMenu(i); updateHud();
 };
 window.sellMachine = function(i){
@@ -462,9 +528,28 @@ window.doReset = function(){
   S = newState(); resetActors(); save(); closeModal(); updateHud();
   toast("🌱 ニューゲーム!");
 };
+function openOpt(){
+  const b = S.opt.bgm, sf = S.opt.sfx;
+  let h = `<h2>⚙️ 設定 <span class="x" onclick="closeModal()">✕</span></h2>`;
+  h += `<div class="item"><div class="ic">🎵</div><div class="info"><div class="nm">BGM</div><div class="ds">工場のテーマ曲を流す</div></div><button class="buy ${b?"":"no"}" onclick="toggleBgm()">${b?"ON":"OFF"}</button></div>`;
+  h += `<div class="item"><div class="ic">🔔</div><div class="info"><div class="nm">効果音</div><div class="ds">回収・売却・実績などの音</div></div><button class="buy ${sf?"":"no"}" onclick="toggleSfx()">${sf?"ON":"OFF"}</button></div>`;
+  h += `<div class="ds" style="color:var(--sub); font-size:12px;">※ 音が出ないときは一度画面をクリック / タップしてください</div>`;
+  openModal(h);
+}
+window.toggleBgm = function(){
+  S.opt.bgm = !S.opt.bgm;
+  if(S.opt.bgm) startBgm(); else stopBgm();
+  save(); openOpt();
+};
+window.toggleSfx = function(){
+  S.opt.sfx = !S.opt.sfx;
+  save(); openOpt();
+  sfx("collect");
+};
 $$("btnShop").onclick = openShop;
 $$("btnSave").onclick = openSaveMenu;
 $$("btnAch").onclick = openAch;
+$$("btnOpt").onclick = openOpt;
 
 // ---------- 入力 ----------
 const keys = {};
@@ -676,15 +761,65 @@ function draw(t){
       continue;
     }
     const tp = TYPES[m.t];
+    const producing = m.buf < tp.buf;
+    // 本体(金属筐体)
     ctx.fillStyle = tp.color;
-    ctx.beginPath(); ctx.roundRect(p.x-45, p.y-40, 90, 68, 8); ctx.fill();
-    ctx.fillStyle = "rgba(0,0,0,.25)";
-    ctx.beginPath(); ctx.roundRect(p.x-45, p.y+8, 90, 20, 6); ctx.fill();
-    const shake = m.buf < tp.buf ? Math.sin(t*8+i)*2 : 0;
-    ctx.font = "30px sans-serif"; ctx.textAlign="center";
-    ctx.fillText(tp.ic, p.x, p.y-4+shake);
+    ctx.beginPath(); ctx.roundRect(p.x-45, p.y-40, 90, 58, 8); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.16)";
+    ctx.beginPath(); ctx.roundRect(p.x-45, p.y-40, 90, 12, 8); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.beginPath(); ctx.roundRect(p.x-45, p.y+6, 90, 12, 6); ctx.fill();
+    // ボルト
+    ctx.fillStyle = "rgba(10,14,22,.6)";
+    for(const b of [[-39,-34],[39,-34],[-39,12],[39,12]]){
+      ctx.beginPath(); ctx.arc(p.x+b[0], p.y+b[1], 2, 0, Math.PI*2); ctx.fill();
+    }
+    // 側面の通気口
+    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 2;
+    for(let k=0;k<3;k++){
+      ctx.beginPath(); ctx.moveTo(p.x-38, p.y-26+k*7); ctx.lineTo(p.x-24, p.y-26+k*7); ctx.stroke();
+    }
+    // 回転ギア(稼働中だけ回る)
+    ctx.save();
+    ctx.translate(p.x+31, p.y-22);
+    ctx.rotate(producing ? t*2.5+i : 0.6);
+    ctx.fillStyle = "rgba(15,20,32,.55)";
+    for(let k=0;k<8;k++){ ctx.rotate(Math.PI/4); ctx.fillRect(-1.6, -9, 3.2, 4); }
+    ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = tp.color;
+    ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    // ステータスランプ(緑=稼働中 / 赤=満杯)
+    ctx.fillStyle = producing ? `rgba(95,224,138,${(0.45+0.55*(Math.sin(t*6+i)+1)/2).toFixed(2)})` : "#ff7b7b";
+    ctx.beginPath(); ctx.arc(p.x+38, p.y-34, 3, 0, Math.PI*2); ctx.fill();
+    // プレス機(生産の進みに合わせて押し込む)
+    const press = producing ? Math.min(1, m.timer/machineItv(m)) : 0;
+    const py = p.y - 36 + press*12;
+    ctx.fillStyle = "rgba(15,20,32,.5)";
+    ctx.fillRect(p.x-4, p.y-40, 8, py-(p.y-40));
+    ctx.fillRect(p.x-13, py, 26, 6);
+    // 製品アイコン
+    ctx.font = "22px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(tp.ic, p.x, p.y+2);
+    // 排出トレイ(製品が1個ずつ見える)
+    ctx.fillStyle = "rgba(8,12,20,.55)";
+    ctx.beginPath(); ctx.roundRect(p.x-40, p.y+22, 80, 16, 4); ctx.fill();
+    const cnt = Math.floor(m.buf);
+    const shown = cnt > 6 ? 5 : cnt;
+    for(let k=0;k<shown;k++){
+      ctx.fillStyle = "rgba(220,228,244,.85)";
+      ctx.beginPath(); ctx.arc(p.x-33+k*13, p.y+30, 5.5, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.font = "11px sans-serif"; ctx.fillStyle = "#fff";
+    for(let k=0;k<shown;k++) ctx.fillText(tp.ic, p.x-33+k*13, p.y+34);
+    if(cnt > 6){
+      ctx.fillStyle = "#ffd257"; ctx.font = "bold 10px sans-serif";
+      ctx.fillText(`+${cnt-5}`, p.x+31, p.y+34);
+    }
+    // 名前・Lv
     ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif";
-    ctx.fillText(`${tp.name} Lv${m.lv}`, p.x, p.y+22);
+    ctx.fillText(`${tp.name} Lv${m.lv}`, p.x, p.y+50);
+    // 貯蔵ゲージ
     const ratio = m.buf/tp.buf;
     ctx.fillStyle = "rgba(0,0,0,.4)";
     ctx.fillRect(p.x-40, p.y-52, 80, 9);
@@ -696,6 +831,16 @@ function draw(t){
       ctx.fillStyle = "#ff7b7b"; ctx.font = "bold 11px sans-serif";
       ctx.fillText("満杯!", p.x+55, p.y-44);
     }
+  }
+
+  // 製品の飛び出しアニメ
+  for(const ip of itemPops){
+    if(ip.age < 0) continue;
+    const T = Math.min(1, ip.age/ip.life);
+    const x = ip.x0 + (ip.x1-ip.x0)*T;
+    const y = ip.y0 + (ip.y1-ip.y0)*T - Math.sin(T*Math.PI)*20;
+    ctx.font = "13px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(ip.ic, x, y);
   }
 
   // 作業員
@@ -733,6 +878,16 @@ function draw(t){
 const pops = [];
 function pop(x, y, text, color){ pops.push({x, y, text, color, age:0}); }
 
+// 製品が飛び出すアニメ(マシン→排出トレイ、回収時はトレイ→プレイヤー)
+const itemPops = [];
+function spawnItemPop(i){
+  if(itemPops.length > 50) return;
+  const m = S.slots[i]; if(!m) return;
+  const p = SLOT_POS[i];
+  const k = Math.max(0, Math.min(Math.floor(m.buf)-1, 5));
+  itemPops.push({ic:TYPES[m.t].ic, x0:p.x, y0:p.y-6, x1:p.x-33+k*13, y1:p.y+32, age:0, life:0.45});
+}
+
 // ---------- ゲームロジック ----------
 let collectCd = 0;
 function moveToward(o, spd, dt){
@@ -747,13 +902,17 @@ function moveToward(o, spd, dt){
 
 function tick(dt, t){
   // 生産
-  for(const m of S.slots){
+  for(let i=0;i<SLOT_N;i++){
+    const m = S.slots[i];
     if(!m) continue;
     const cap = TYPES[m.t].buf;
     if(m.buf >= cap) continue;
     m.timer += dt;
     const itv = machineItv(m);
-    while(m.timer >= itv && m.buf < cap){ m.timer -= itv; m.buf++; }
+    while(m.timer >= itv && m.buf < cap){
+      m.timer -= itv; m.buf++;
+      spawnItemPop(i);
+    }
   }
 
   // プレイヤー移動
@@ -786,6 +945,10 @@ function tick(dt, t){
           S.carryN += n;
           S.carryV += n * machineVal(m);
           pop(p.x, p.y-60, `+${n}個`, "#5ab0ff");
+          sfx("collect");
+          for(let k=0;k<Math.min(n,4);k++){
+            itemPops.push({ic:TYPES[m.t].ic, x0:p.x-33+k*13, y0:p.y+32, x1:player.x, y1:player.y-24, age:-k*0.06, life:0.3});
+          }
           collectCd = 0.35;
         }
       }
@@ -797,37 +960,46 @@ function tick(dt, t){
     S.totalEarned += S.carryV;
     S.stats.itemsSold += S.carryN;
     pop(DOCK.x-30, DOCK.y-40, `+¥${fmt(S.carryV)}`, "#5fe08a");
+    sfx("sell");
     S.carryN = 0; S.carryV = 0;
   }
 
-  // 作業員AI
+  // 作業員AI(それぞれ別のマシンを担当して分担する)
   for(const w of workers){
     w.wait -= dt;
     if(w.state==="idle"){
       if(w.wait>0) continue;
+      // 他の作業員が向かっているマシンは選ばない
+      const claimed = new Set();
+      for(const o of workers){ if(o!==w && o.state==="go") claimed.add(o.slot); }
       let best=-1, bestBuf=0.9;
       for(let i=0;i<facSlots();i++){
         const m = S.slots[i];
-        if(m && m.buf > bestBuf){ best=i; bestBuf=m.buf; }
+        if(m && m.buf > bestBuf && !claimed.has(i)){ best=i; bestBuf=m.buf; }
       }
       if(best>=0){
         w.slot = best;
         w.tx = SLOT_POS[best].x + 30; w.ty = SLOT_POS[best].y + 45;
         w.state = "go";
-      }else w.wait = 0.8;
+      }else w.wait = 0.6;
     }else if(w.state==="go"){
-      if(moveToward(w, 110, dt)){
+      if(moveToward(w, w.spd, dt)){
         const m = S.slots[w.slot];
         if(m && m.buf>=1){
           const n = Math.min(Math.floor(m.buf), 8);
           m.buf -= n;
           w.carryN = n; w.carryV = n*machineVal(m);
         }
-        w.tx = DOCK.x - 30; w.ty = DOCK.y + (Math.random()*80-40);
-        w.state = "dock";
+        if(w.carryN>0){
+          w.tx = DOCK.x - 30; w.ty = DOCK.y + (Math.random()*80-40);
+          w.state = "dock";
+        }else{
+          // 空振り:何も持っていないなら出荷口には行かず次を探す
+          w.state = "idle"; w.wait = 0.3;
+        }
       }
     }else if(w.state==="dock"){
-      if(moveToward(w, 110, dt)){
+      if(moveToward(w, w.spd, dt)){
         if(w.carryN>0){
           S.money += w.carryV; S.totalEarned += w.carryV;
           S.stats.itemsSold += w.carryN;
@@ -850,6 +1022,10 @@ function tick(dt, t){
     c.vy += 300*dt;
     c.x += c.vx*dt; c.y += c.vy*dt;
     if(c.age > c.life) confs.splice(i,1);
+  }
+  for(let i=itemPops.length-1;i>=0;i--){
+    itemPops[i].age += dt;
+    if(itemPops[i].age > itemPops[i].life) itemPops.splice(i,1);
   }
 
   // 実績チェック(1秒ごと)
