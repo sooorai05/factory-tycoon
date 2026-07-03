@@ -73,6 +73,19 @@
     width:100%; height:90px; background:#161d2b; color:var(--text);
     border:1px solid var(--line); border-radius:8px; padding:8px; font-size:12px; resize:vertical;
   }
+  input[type=text]{
+    width:100%; background:#161d2b; color:var(--text);
+    border:1px solid var(--line); border-radius:8px; padding:8px; font-size:13px;
+  }
+  .rankRow{
+    display:flex; align-items:center; gap:8px; padding:8px 10px; margin-bottom:6px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px; font-size:13px;
+  }
+  .rankRow.me{border-color:var(--gold);}
+  .rankRow .pos{width:30px; text-align:center; font-size:16px;}
+  .rankRow .rn{flex:1; font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .rankRow .rs{color:var(--gold); font-weight:800; white-space:nowrap;}
+  .rankRow .rx{color:var(--sub); font-size:11px; white-space:nowrap;}
   .row{display:flex; gap:8px; margin-top:8px;}
   .row .buy{flex:1;}
   #toasts{
@@ -101,6 +114,7 @@
     <div id="money">¥0</div>
     <div id="subInfo"></div>
   </div>
+  <button class="hudBtn" id="btnRank">🏅</button>
   <button class="hudBtn" id="btnAch">🏆 実績</button>
   <button class="hudBtn" id="btnShop">🛒 ショップ</button>
   <button class="hudBtn" id="btnSave">💾 セーブ</button>
@@ -129,6 +143,8 @@ const TYPES = [
   {name:"ロボット組立機", ic:"🤖", cost:15000,   val:400,  itv:7.0, buf:8,  color:"#5a7fd6"},
   {name:"AIコア炉",       ic:"🧠", cost:80000,   val:1800, itv:10.0,buf:6,  color:"#b05ad6"},
   {name:"量子リアクター", ic:"⚛️", cost:450000,  val:9500, itv:14.0,buf:5,  color:"#d65a8f"},
+  {name:"衛星ファクトリー", ic:"🛰️", cost:2500000,  val:45000,  itv:16.0, buf:4, color:"#4fc3d6"},
+  {name:"次元ゲート",       ic:"🌀", cost:12000000, val:220000, itv:22.0, buf:3, color:"#7a5ad6"},
 ];
 
 // ---------- 工場拡張レベル ----------
@@ -169,6 +185,8 @@ const ACH = [
   {id:"fac3",  ic:"🏗️", name:"リフォーム",       desc:"工場をレベル3に拡張する",    reward:5000,   cond:c=>S.facLv>=3},
   {id:"fac5",  ic:"🏰", name:"夢の城",           desc:"工場を最大レベルに拡張する", reward:150000, cond:c=>S.facLv>=FAC_MAX},
   {id:"cap5",  ic:"🎒", name:"力持ち",           desc:"運搬キャパをLv5にする",      reward:3000,   cond:c=>S.capLv>=5},
+  {id:"wpro",  ic:"🦾", name:"精鋭部隊",         desc:"スーパー作業員を雇う",       reward:30000,  cond:c=>S.proWorkers>=1},
+  {id:"earn3", ic:"🌟", name:"伝説の社長",       desc:"累計売上 ¥50,000,000 を達成",reward:2000000,cond:c=>S.totalEarned>=50000000},
 ];
 
 // ---------- 状態 ----------
@@ -180,6 +198,7 @@ function newState(){
     slots: Array(SLOT_N).fill(null), // {t, lv, buf, timer}
     capLv: 1, spdLv: 1,
     workers: 0,
+    proWorkers: 0,
     carryN: 0, carryV: 0,
     facLv: 1,
     ach: {},
@@ -200,6 +219,7 @@ function migrate(s){
   if(!s.stats) s.stats = {itemsSold:0};
   if(s.stats.itemsSold == null) s.stats.itemsSold = 0;
   if(!s.opt) s.opt = {bgm:true, sfx:true};
+  if(!s.proWorkers) s.proWorkers = 0;
   return s;
 }
 function facSlots(){ return FAC[S.facLv].slots; }
@@ -215,6 +235,7 @@ function capUpCost(){ return Math.round(250 * Math.pow(1.9, S.capLv-1)); }
 function playerSpd(){ return 170 * (1 + (S.spdLv-1)*0.10); }
 function spdUpCost(){ return Math.round(350 * Math.pow(1.9, S.spdLv-1)); }
 function workerCost(){ return Math.round(1200 * Math.pow(2.1, S.workers)); }
+function proWorkerCost(){ return Math.round(50000 * Math.pow(2.8, S.proWorkers)); }
 function achCount(){ return Object.keys(S.ach).length; }
 
 // ---------- セーブ / ロード ----------
@@ -260,9 +281,10 @@ function applyOffline(){
     const cap = TYPES[m.t].buf;
     const fit = Math.min(produced, cap - m.buf);
     m.buf = Math.floor(Math.min(cap, m.buf + produced));
-    if(S.workers > 0){
+    const effWorkers = S.workers + (S.proWorkers||0)*3;
+    if(effWorkers > 0){
       const overflow = Math.max(0, produced - fit);
-      workerSold += overflow * machineVal(m) * 0.5 * Math.min(1, S.workers/3);
+      workerSold += overflow * machineVal(m) * 0.5 * Math.min(1, effWorkers/3);
     }
   }
   workerSold = Math.floor(workerSold);
@@ -279,10 +301,17 @@ let workers = [];
 function resetActors(){
   player.x = player.tx = 480; player.y = player.ty = 275;
   workers = [];
-  for(let i=0;i<S.workers;i++) spawnWorker(i);
+  for(let i=0;i<S.workers;i++) spawnWorker(i, false);
+  for(let i=0;i<S.proWorkers;i++) spawnWorker(S.workers+i, true);
 }
-function spawnWorker(i){
-  workers.push({x:460+((i*53)%80), y:255+((i*37)%60), tx:0, ty:0, state:"idle", slot:-1, carryN:0, carryV:0, walk:0, face:1, wait:Math.random(), spd:100+Math.random()*35});
+function spawnWorker(i, pro){
+  workers.push({
+    x:460+((i*53)%80), y:255+((i*37)%60), tx:0, ty:0, state:"idle", slot:-1,
+    carryN:0, carryV:0, walk:0, face:1, wait:Math.random(),
+    pro: !!pro,
+    spd: pro ? 215+Math.random()*20 : 100+Math.random()*35,
+    cap: pro ? 25 : 8,
+  });
 }
 
 // ---------- サウンド(Web Audioで生成・外部ファイル不要) ----------
@@ -358,7 +387,7 @@ function updateHud(){
   $$("money").textContent = "¥" + fmt(S.money);
   const machines = S.slots.filter(Boolean).length;
   $$("subInfo").textContent =
-    `【${FAC[S.facLv].name} Lv${S.facLv}】 所持:${S.carryN}/${capMax()}個  マシン:${machines}/${facSlots()}台  作業員:${S.workers}人  累計:¥${fmt(S.totalEarned)}`;
+    `【${FAC[S.facLv].name} Lv${S.facLv}】 所持:${S.carryN}/${capMax()}個  マシン:${machines}/${facSlots()}台  作業員:${S.workers}${S.proWorkers?`+🦾${S.proWorkers}`:""}人  累計:¥${fmt(S.totalEarned)}`;
   $$("btnAch").textContent = `🏆 ${achCount()}/${ACH.length}`;
 }
 
@@ -402,6 +431,7 @@ function shopHtml(){
   h += `<div class="item"><div class="ic">🎒</div><div class="info"><div class="nm">運搬キャパ Lv${S.capLv}</div><div class="ds">一度に運べる数 ${capMax()} → ${capMax()+10}</div></div><button class="buy ${S.money>=capUpCost()?"":"no"}" onclick="buyCap()">¥${fmt(capUpCost())}</button></div>`;
   h += `<div class="item"><div class="ic">👟</div><div class="info"><div class="nm">移動スピード Lv${S.spdLv}</div><div class="ds">歩く速さ +10%</div></div><button class="buy ${S.money>=spdUpCost()?"":"no"}" onclick="buySpd()">¥${fmt(spdUpCost())}</button></div>`;
   h += `<div class="item"><div class="ic">👷</div><div class="info"><div class="nm">作業員を雇う(${S.workers}人)</div><div class="ds">自動で回収・出荷してくれる</div></div><button class="buy ${S.money>=workerCost()?"":"no"}" onclick="buyWorker()">¥${fmt(workerCost())}</button></div>`;
+  h += `<div class="item"><div class="ic">🦾</div><div class="info"><div class="nm">スーパー作業員を雇う(${S.proWorkers}人)</div><div class="ds">超高速・25個持てる・複数マシンをはしご</div></div><button class="buy ${S.money>=proWorkerCost()?"":"no"}" onclick="buyProWorker()">¥${fmt(proWorkerCost())}</button></div>`;
   h += `<div class="ds" style="margin:10px 0 4px; color:var(--sub); font-size:12px;">▼ マシンは工場内の「空きスロット」をクリックしても購入できます</div>`;
   const empty = S.slots.findIndex((s,i)=>!s && i<facSlots());
   TYPES.forEach((tp,t)=>{
@@ -438,7 +468,8 @@ window.buyExpand = function(){
 };
 window.buyCap = function(){ const c=capUpCost(); if(S.money<c) return; S.money-=c; S.capLv++; toast("🎒 運搬キャパUP!"); sfx("upgrade"); save(); refreshShop(); updateHud(); };
 window.buySpd = function(){ const c=spdUpCost(); if(S.money<c) return; S.money-=c; S.spdLv++; toast("👟 スピードUP!"); sfx("upgrade"); save(); refreshShop(); updateHud(); };
-window.buyWorker = function(){ const c=workerCost(); if(S.money<c) return; S.money-=c; S.workers++; spawnWorker(S.workers); toast("👷 作業員を雇った!"); sfx("hire"); save(); refreshShop(); updateHud(); };
+window.buyWorker = function(){ const c=workerCost(); if(S.money<c) return; S.money-=c; S.workers++; spawnWorker(S.workers, false); toast("👷 作業員を雇った!"); sfx("hire"); save(); refreshShop(); updateHud(); };
+window.buyProWorker = function(){ const c=proWorkerCost(); if(S.money<c) return; S.money-=c; S.proWorkers++; spawnWorker(S.workers+S.proWorkers, true); toast("🦾 スーパー作業員を雇った!", true); sfx("hire"); save(); refreshShop(); updateHud(); };
 window.buyMachine = function(t, slot){
   if(slot<0 || slot>=facSlots() || S.slots[slot]) slot = S.slots.findIndex((s,i)=>!s && i<facSlots());
   if(slot<0) return;
@@ -528,6 +559,70 @@ window.doReset = function(){
   S = newState(); resetActors(); save(); closeModal(); updateHud();
   toast("🌱 ニューゲーム!");
 };
+// ---------- ランキング(スコアコードを友達と交換して競う) ----------
+const RANK_KEY = "factory-tycoon-ranking-v1";
+const NAME_KEY = "factory-tycoon-name";
+function loadRank(){ try{ return JSON.parse(localStorage.getItem(RANK_KEY)) || []; }catch(e){ return []; } }
+function saveRankList(list){ try{ localStorage.setItem(RANK_KEY, JSON.stringify(list.slice(0,50))); }catch(e){} }
+function myName(){ return (localStorage.getItem(NAME_KEY) || "").slice(0,12); }
+function myEntry(){
+  return {n: myName() || "あなた", s: Math.floor(S.totalEarned), a: achCount(), f: S.facLv, d: new Date().toISOString().slice(0,10)};
+}
+function openRank(){
+  const me = myEntry();
+  const others = loadRank().filter(e => e.n !== me.n);
+  const all = [...others, {...me, me:true}].sort((a,b) => b.s - a.s);
+  const medals = ["🥇","🥈","🥉"];
+  let h = `<h2>🏅 ランキング(累計売上) <span class="x" onclick="closeModal()">✕</span></h2>`;
+  all.forEach((e,i) => {
+    h += `<div class="rankRow ${e.me?"me":""}"><div class="pos">${medals[i]||(i+1)+"位"}</div><div class="rn">${esc(e.n)}${e.me?" (あなた)":""}</div><div class="rs">¥${fmt(e.s)}</div><div class="rx">🏆${e.a} 工場Lv${e.f}</div></div>`;
+  });
+  h += `<div class="ds" style="color:var(--sub); font-size:12px; margin:10px 0 6px;">▼ 名前を入れて「コードを発行」→ 友達に送信。友達のコードを下に貼って「追加」すると同じ表で競えます。</div>`;
+  h += `<input type="text" id="rankName" maxlength="12" placeholder="あなたの名前(12文字まで)" value="${esc(myName())}">`;
+  h += `<textarea id="rankCode" style="margin-top:8px;" placeholder="ここに友達のスコアコードを貼り付け→「追加」"></textarea>`;
+  h += `<div class="row">
+    <button class="buy" onclick="doRankExport()">📤 コードを発行</button>
+    <button class="buy" onclick="doRankAdd()">📥 追加</button>
+  </div>`;
+  if(others.length > 0){
+    h += `<div class="row"><button class="buy danger" onclick="doRankClear()">🗑️ 友達のスコアを全部消す</button></div>`;
+  }
+  openModal(h);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+window.doRankExport = function(){
+  const name = $$("rankName").value.trim().slice(0,12);
+  if(!name){ toast("❌ 名前を入れてください"); return; }
+  localStorage.setItem(NAME_KEY, name);
+  const code = "FTR1." + btoa(unescape(encodeURIComponent(JSON.stringify(myEntry()))));
+  const ta = $$("rankCode");
+  ta.value = code;
+  ta.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  if(navigator.clipboard) navigator.clipboard.writeText(code).catch(()=>{});
+  toast("📋 スコアコードをコピーしました。友達に送ろう!");
+};
+window.doRankAdd = function(){
+  try{
+    const code = $$("rankCode").value.trim();
+    if(!code.startsWith("FTR1.")) throw 0;
+    const e = JSON.parse(decodeURIComponent(escape(atob(code.slice(5)))));
+    if(!e || typeof e.n !== "string" || typeof e.s !== "number") throw 0;
+    e.n = e.n.slice(0,12); e.s = Math.max(0, Math.floor(e.s));
+    e.a = Math.max(0, Math.floor(e.a||0)); e.f = Math.max(1, Math.floor(e.f||1));
+    const list = loadRank().filter(o => o.n !== e.n);
+    list.push({n:e.n, s:e.s, a:e.a, f:e.f, d:String(e.d||"").slice(0,10)});
+    saveRankList(list);
+    toast(`✅ ${e.n} さんのスコアを追加!`);
+    openRank();
+  }catch(err){ toast("❌ コードが正しくありません"); }
+};
+window.doRankClear = function(){
+  if(!confirm("登録した友達のスコアを全部消しますか?")) return;
+  saveRankList([]);
+  openRank();
+};
+
 function openOpt(){
   const b = S.opt.bgm, sf = S.opt.sfx;
   let h = `<h2>⚙️ 設定 <span class="x" onclick="closeModal()">✕</span></h2>`;
@@ -550,6 +645,7 @@ $$("btnShop").onclick = openShop;
 $$("btnSave").onclick = openSaveMenu;
 $$("btnAch").onclick = openAch;
 $$("btnOpt").onclick = openOpt;
+$$("btnRank").onclick = openRank;
 
 // ---------- 入力 ----------
 const keys = {};
@@ -843,12 +939,17 @@ function draw(t){
     ctx.fillText(ip.ic, x, y);
   }
 
-  // 作業員
+  // 作業員(🦾スーパー作業員はオレンジ服+金ヘルメット)
   for(const w of workers){
-    drawPerson(w.x, w.y, {shirt:"#4a9e5f", helmet:"#e8e8e8", scale:0.85, walk:w.walk});
+    if(w.pro) drawPerson(w.x, w.y, {shirt:"#d4682f", helmet:"#ffd257", scale:0.95, walk:w.walk});
+    else      drawPerson(w.x, w.y, {shirt:"#4a9e5f", helmet:"#e8e8e8", scale:0.85, walk:w.walk});
     if(w.carryN>0){
       ctx.font="12px sans-serif"; ctx.textAlign="center";
       ctx.fillText("📦", w.x+12, w.y-24);
+      if(w.pro){
+        ctx.fillStyle = "#ffd257"; ctx.font = "bold 10px sans-serif";
+        ctx.fillText(`×${w.carryN}`, w.x+24, w.y-22);
+      }
     }
   }
   // プレイヤー
@@ -986,11 +1087,25 @@ function tick(dt, t){
       if(moveToward(w, w.spd, dt)){
         const m = S.slots[w.slot];
         if(m && m.buf>=1){
-          const n = Math.min(Math.floor(m.buf), 8);
+          const n = Math.min(Math.floor(m.buf), w.cap - w.carryN);
           m.buf -= n;
-          w.carryN = n; w.carryV = n*machineVal(m);
+          w.carryN += n; w.carryV += n*machineVal(m);
         }
-        if(w.carryN>0){
+        // スーパー作業員は容量に余裕があれば別のマシンもはしごする
+        let next = -1;
+        if(w.pro && w.carryN < w.cap*0.6){
+          const claimed = new Set();
+          for(const o of workers){ if(o!==w && o.state==="go") claimed.add(o.slot); }
+          let bestBuf = 0.9;
+          for(let i=0;i<facSlots();i++){
+            const m2 = S.slots[i];
+            if(m2 && i!==w.slot && m2.buf > bestBuf && !claimed.has(i)){ next=i; bestBuf=m2.buf; }
+          }
+        }
+        if(next>=0){
+          w.slot = next;
+          w.tx = SLOT_POS[next].x + 30; w.ty = SLOT_POS[next].y + 45;
+        }else if(w.carryN>0){
           w.tx = DOCK.x - 30; w.ty = DOCK.y + (Math.random()*80-40);
           w.state = "dock";
         }else{
