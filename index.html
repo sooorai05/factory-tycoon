@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>ファクトリー・タイクーン</title>
+<title>工場勤務でも世界を救いたい</title>
 <style>
   :root{
     --bg:#1b2230; --panel:#232d40; --panel2:#2c3850; --line:#3d4c6b;
@@ -116,14 +116,22 @@
   </div>
   <button class="hudBtn" id="btnRank">🏅</button>
   <button class="hudBtn" id="btnAch">🏆 実績</button>
+  <button class="hudBtn" id="btnEquip">⚔️ 装備</button>
   <button class="hudBtn" id="btnShop">🛒 ショップ</button>
   <button class="hudBtn" id="btnSave">💾 セーブ</button>
   <button class="hudBtn" id="btnOpt">⚙️ 設定</button>
 </div>
 
-<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <button class="hudBtn" id="btnBack" style="display:none; position:absolute; left:12px; top:12px; z-index:5;">🏭 工場に戻る</button>
+  <div id="battleBtns" style="display:none; position:absolute; right:12px; bottom:12px; z-index:5; gap:8px;">
+    <button class="hudBtn" id="btnPotion">🧪 回復(Q)</button>
+    <button class="hudBtn" id="btnFlee">🏳️ にげる</button>
+  </div>
+</div>
 
-<div id="help">移動:クリック / タップ / WASD・矢印キー  |  マシンに近づくと自動で回収、出荷口(右)で自動売却。マシンをクリックで強化・購入。</div>
+<div id="help">【工場勤務でも世界を救いたい】 移動:クリック / タップ / WASD・矢印キー  |  マシンで稼いで出荷口(右)で売却、⚔️装備を整えて左のゲートから世界を救おう!戦闘中はQで回復。</div>
 
 <div id="overlay"><div id="modal"></div></div>
 <div id="toasts"></div>
@@ -187,6 +195,10 @@ const ACH = [
   {id:"cap5",  ic:"🎒", name:"力持ち",           desc:"運搬キャパをLv5にする",      reward:3000,   cond:c=>S.capLv>=5},
   {id:"wpro",  ic:"🦾", name:"精鋭部隊",         desc:"スーパー作業員を雇う",       reward:30000,  cond:c=>S.proWorkers>=1},
   {id:"earn3", ic:"🌟", name:"伝説の社長",       desc:"累計売上 ¥50,000,000 を達成",reward:2000000,cond:c=>S.totalEarned>=50000000},
+  {id:"rpg1",  ic:"🗡️", name:"初陣",             desc:"ステージ1をクリアする",      reward:3000,   cond:c=>S.rpg.stage>=1},
+  {id:"rpg7",  ic:"🏔️", name:"雪原を越えて",     desc:"ステージ7をクリアする",      reward:100000, cond:c=>S.rpg.stage>=7},
+  {id:"kings", ic:"👑", name:"四天王撃破",       desc:"四天王を全員倒す",           reward:1000000,cond:c=>S.rpg.kings.every(k=>k)},
+  {id:"hero",  ic:"🌈", name:"世界を救った!",   desc:"魔王を倒す",                 reward:10000000,cond:c=>S.rpg.demon},
 ];
 
 // ---------- 状態 ----------
@@ -204,6 +216,8 @@ function newState(){
     ach: {},
     stats: {itemsSold: 0},
     opt: {bgm: true, sfx: true},
+    rpg: {stage:0, kings:[false,false,false,false], demon:false,
+          ownedW:[true,false,false,false,false,false], ownedA:[true,false,false,false,false], potions:0, rngLv:1},
     last: Date.now(),
   };
 }
@@ -220,6 +234,9 @@ function migrate(s){
   if(s.stats.itemsSold == null) s.stats.itemsSold = 0;
   if(!s.opt) s.opt = {bgm:true, sfx:true};
   if(!s.proWorkers) s.proWorkers = 0;
+  if(!s.rpg) s.rpg = {stage:0, kings:[false,false,false,false], demon:false,
+                      ownedW:[true,false,false,false,false,false], ownedA:[true,false,false,false,false], potions:0};
+  if(!s.rpg.rngLv) s.rpg.rngLv = 1;
   return s;
 }
 function facSlots(){ return FAC[S.facLv].slots; }
@@ -277,7 +294,8 @@ function applyOffline(){
   let workerSold = 0;
   for(const m of S.slots){
     if(!m) continue;
-    const produced = dt / machineItv(m);
+    // オフライン中は生産効率1/3
+    const produced = dt / machineItv(m) / 3;
     const cap = TYPES[m.t].buf;
     const fit = Math.min(produced, cap - m.buf);
     m.buf = Math.floor(Math.min(cap, m.buf + produced));
@@ -345,6 +363,9 @@ function sfx(name){
     case "hire":    tone(sfxGain, 523, 0.08, "square", 0.12); tone(sfxGain, 659, 0.10, "square", 0.12, 0.08); break;
     case "ach":     [523,659,784,1046].forEach((f,k)=>tone(sfxGain, f, 0.16, "triangle", 0.20, k*0.09)); break;
     case "expand":  [392,523,659,784,1046,1318].forEach((f,k)=>tone(sfxGain, f, 0.20, "triangle", 0.20, k*0.10)); break;
+    case "hit":     tone(sfxGain, 200, 0.07, "square", 0.15, 0, 120); break;
+    case "hurt":    tone(sfxGain, 130, 0.16, "sawtooth", 0.20, 0, 70); break;
+    case "lose":    [392,330,262,196].forEach((f,k)=>tone(sfxGain, f, 0.22, "triangle", 0.18, k*0.16)); break;
   }
 }
 // BGM:かんたんチップチューンのループ
@@ -652,6 +673,7 @@ const keys = {};
 addEventListener("keydown", e=>{
   keys[e.key.toLowerCase()] = true;
   if(e.key==="Escape") closeModal();
+  if(e.key.toLowerCase()==="q") usePotion();
 });
 addEventListener("keyup", e=>{ keys[e.key.toLowerCase()] = false; });
 
@@ -664,6 +686,13 @@ function canvasPos(e){
 function onTap(e){
   if(overlay.classList.contains("show")) return;
   const p = canvasPos(e);
+  if(mode==="worldmap"){ mapTap(p); e.preventDefault(); return; }
+  if(mode==="castle"){ castleTap(p); e.preventDefault(); return; }
+  if(mode==="battle"){
+    player.tx = Math.max(30, Math.min(W-30, p.x));
+    player.ty = Math.max(70, Math.min(H-30, p.y));
+    e.preventDefault(); return;
+  }
   for(let i=0;i<SLOT_N;i++){
     const s = SLOT_POS[i];
     if(Math.abs(p.x-s.x)<50 && Math.abs(p.y-s.y)<50){
@@ -809,6 +838,12 @@ function drawDeco(t){
 
 // ---------- ワールド描画 ----------
 function draw(t){
+  if(mode==="worldmap"){ drawMap(t); return; }
+  if(mode==="battle"){ drawBattle(t); return; }
+  if(mode==="castle"){ drawCastle(t); return; }
+  drawFactory(t);
+}
+function drawFactory(t){
   ctx.clearRect(0,0,W,H);
   const fac = FAC[S.facLv];
   for(let y=0;y<H;y+=60){
@@ -831,6 +866,22 @@ function draw(t){
   ctx.rotate(-Math.PI/2);
   ctx.fillStyle = "#ffd257"; ctx.font = "bold 16px sans-serif"; ctx.textAlign="center";
   ctx.fillText("🚚 出荷口", 0, 0);
+  ctx.restore();
+
+  // ⚔️「世界を救う」ゲート(左端)
+  const gg = ctx.createLinearGradient(0, 190, 40, 190);
+  gg.addColorStop(0, "#5a2d8a"); gg.addColorStop(1, "#8a55c8");
+  ctx.fillStyle = gg;
+  ctx.fillRect(0, 190, 38, 170);
+  ctx.fillStyle = `rgba(210,160,255,${(0.35+0.25*Math.sin(t*3)).toFixed(2)})`;
+  ctx.fillRect(4, 198, 30, 154);
+  ctx.font = "20px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("🌀", 19, 245);
+  ctx.save();
+  ctx.translate(19, 300);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillStyle = "#ffd257"; ctx.font = "bold 13px sans-serif";
+  ctx.fillText("⚔️ 世界を救う", 0, -12);
   ctx.restore();
 
   // マシンスロット
@@ -1016,6 +1067,7 @@ function tick(dt, t){
     }
   }
 
+  if(mode==="factory"){
   // プレイヤー移動
   let kx=0, ky=0;
   if(keys["a"]||keys["arrowleft"]) kx--;
@@ -1063,6 +1115,15 @@ function tick(dt, t){
     pop(DOCK.x-30, DOCK.y-40, `+¥${fmt(S.carryV)}`, "#5fe08a");
     sfx("sell");
     S.carryN = 0; S.carryV = 0;
+  }
+
+  // ⚔️「世界を救う」ゲート(左端に入るとマップへ)
+  gateCd -= dt;
+  if(gateCd <= 0 && player.x < 58 && Math.abs(player.y-275) < 85){
+    setMode("worldmap");
+  }
+  }else if(mode==="battle" && B && !document.hidden){
+    battleTick(dt);
   }
 
   // 作業員AI(それぞれ別のマシンを担当して分担する)
@@ -1148,6 +1209,526 @@ function tick(dt, t){
   if(achTimer<=0){ checkAch(); achTimer = 1.0; }
 }
 
+/* =========================================================
+   RPGパート:工場勤務でも世界を救いたい
+   ========================================================= */
+let mode = "factory", gateCd = 0;
+let B = null; // 戦闘状態
+
+// ---------- 装備 ----------
+const RPG = {
+  weapons: [
+    {name:"木の棒",             ic:"🪵", atk:5,   cost:0,       rng:42, cd:0.60},
+    {name:"こん棒",             ic:"🏏", atk:12,  cost:3000,    rng:44, cd:0.60},
+    {name:"鉄の剣",             ic:"🗡️", atk:30,  cost:25000,   rng:46, cd:0.55},
+    {name:"鋼の大剣",           ic:"⚔️", atk:70,  cost:150000,  rng:50, cd:0.65},
+    {name:"炎の剣",             ic:"🔥", atk:160, cost:900000,  rng:48, cd:0.50},
+    {name:"聖剣エクスカリバー", ic:"✨", atk:350, cost:6000000, rng:52, cd:0.50},
+  ],
+  armors: [
+    {name:"作業服",       ic:"🦺", def:0,  hp:0,   cost:0},
+    {name:"革の鎧",       ic:"🥋", def:3,  hp:30,  cost:5000},
+    {name:"鉄の鎧",       ic:"🛡️", def:8,  hp:80,  cost:40000},
+    {name:"ミスリルの鎧", ic:"💠", def:18, hp:180, cost:250000},
+    {name:"勇者の鎧",     ic:"🌟", def:35, hp:400, cost:1500000},
+  ],
+  potionCost: 2000,
+};
+function curWeapon(){ let k=0; S.rpg.ownedW.forEach((o,i)=>{ if(o) k=i; }); return RPG.weapons[k]; }
+function curArmor(){ let k=0; S.rpg.ownedA.forEach((o,i)=>{ if(o) k=i; }); return RPG.armors[k]; }
+function heroMaxHp(){ return 100 + curArmor().hp; }
+function heroAtk(){ return curWeapon().atk; }
+function heroDef(){ return curArmor().def; }
+const RNG_MAX = 6;
+function atkRange(){ return curWeapon().rng + (S.rpg.rngLv-1)*7; }
+function rngUpCost(){ return Math.round(8000 * Math.pow(3, S.rpg.rngLv-1)); }
+
+// ---------- 敵・ステージ ----------
+// shoot: {ic:弾の見た目, dist:射程, cd:発射間隔, spd:弾速, mul:威力倍率} / keepMelee:trueなら撃ちつつ接近もする
+const EN = {
+  slime:  {n:"スライム",         ic:"👾", hp:30,   atk:5,   spd:55,  size:15},
+  wolf:   {n:"野犬",             ic:"🐺", hp:50,   atk:9,   spd:115, size:15},
+  garcher:{n:"弓ゴブリン",       ic:"🏹", hp:45,   atk:11,  spd:75,  size:15, shoot:{ic:"➸", dist:250, cd:2.4, spd:210, mul:1}},
+  orc:    {n:"オーク",           ic:"👹", hp:100,  atk:13,  spd:70,  size:18},
+  swolf:  {n:"雪狼",             ic:"🐺", hp:150,  atk:19,  spd:120, size:16},
+  yeti:   {n:"イエティ",         ic:"🦍", hp:280,  atk:28,  spd:75,  size:20},
+  switch_:{n:"スノーウィッチ",   ic:"🧙", hp:220,  atk:34,  spd:70,  size:18, shoot:{ic:"❄️", dist:270, cd:2.2, spd:230, mul:1}},
+  igolem: {n:"アイスゴーレム",   ic:"🧊", hp:450,  atk:38,  spd:50,  size:22},
+  fdragon:{n:"フロストドラゴン", ic:"🐉", hp:950,  atk:55,  spd:85,  size:26},
+  demon:  {n:"デーモン",         ic:"😈", hp:800,  atk:70,  spd:95,  size:20},
+  warlock:{n:"魔界の呪術師",     ic:"🧿", hp:650,  atk:80,  spd:80,  size:18, shoot:{ic:"🔮", dist:290, cd:2.0, spd:250, mul:1}},
+  garg:   {n:"ガーゴイル",       ic:"🦇", hp:950,  atk:82,  spd:125, size:18},
+  dknight:{n:"デスナイト",       ic:"🧟", hp:1600, atk:105, spd:70,  size:22},
+};
+const STAGES = [
+  {name:"草原のはずれ", theme:"grass", foes:["slime","slime"],              reward:2000},
+  {name:"みどりの丘",   theme:"grass", foes:["slime","wolf","garcher"],     reward:5000},
+  {name:"森の入り口",   theme:"grass", foes:["orc","orc","garcher"],        reward:12000},
+  {name:"雪原の道",     theme:"snow",  foes:["swolf","swolf","swolf"],      reward:25000},
+  {name:"吹雪の谷",     theme:"snow",  foes:["yeti","switch_"],             reward:50000},
+  {name:"凍てつく湖",   theme:"snow",  foes:["igolem","igolem","switch_"],  reward:100000},
+  {name:"白銀の峠",     theme:"snow",  foes:["fdragon","swolf","switch_"],  reward:200000},
+  {name:"魔界の門",     theme:"dark",  foes:["demon","demon","warlock"],    reward:400000},
+  {name:"奈落の断崖",   theme:"dark",  foes:["garg","dknight","warlock"],   reward:800000},
+];
+const KINGS = [
+  {n:"剛腕のグラン", ic:"🦍", hp:3200, atk:120, spd:85,  size:26, reward:1000000},
+  {n:"氷結のフリア", ic:"❄️", hp:3800, atk:135, spd:105, size:24, reward:1200000, shoot:{ic:"❄️", dist:300, cd:2.4, spd:250, mul:0.8}},
+  {n:"炎獄のイグナ", ic:"🔥", hp:4400, atk:155, spd:95,  size:24, reward:1500000},
+  {n:"冥闇のノクス", ic:"🌑", hp:5200, atk:175, spd:115, size:24, reward:2000000, shoot:{ic:"🌑", dist:320, cd:2.6, spd:270, mul:0.8}},
+];
+const DEMON = {n:"魔王", ic:"👿", hp:13000, atk:230, spd:150, size:32, reward:10000000, keepMelee:true, shoot:{ic:"🔥", dist:420, cd:4.0, spd:240, mul:0.45}};
+const KING_POS = [{x:190,y:200},{x:390,y:150},{x:570,y:150},{x:770,y:200}];
+const DEMON_POS = {x:480, y:330};
+
+// すごろくマップのノード座標(1〜3草原・4〜7雪原・8〜9魔界・10魔王城)
+const MAP_NODES = [];
+for(let i=0;i<10;i++){
+  const tt = i/9;
+  MAP_NODES.push({
+    x: 85 + tt*790 + Math.sin(tt*Math.PI*2)*26,
+    y: 445 - tt*300 + Math.sin(tt*Math.PI*3.2)*22,
+  });
+}
+
+// ---------- モード切替 ----------
+function setMode(m){
+  mode = m;
+  closeModal();
+  $$("btnBack").style.display = (m==="worldmap" || m==="castle") ? "block" : "none";
+  $$("btnBack").textContent = m==="castle" ? "🗺️ マップに戻る" : "🏭 工場に戻る";
+  $$("battleBtns").style.display = m==="battle" ? "flex" : "none";
+  if(m==="factory"){
+    player.x = player.tx = 95; player.y = player.ty = 275;
+    gateCd = 1.5;
+  }
+  if(m==="battle") updatePotionBtn();
+}
+$$("btnBack").onclick = ()=>{ setMode(mode==="castle" ? "worldmap" : "factory"); };
+$$("btnFlee").onclick = ()=>{
+  if(mode!=="battle" || !B) return;
+  const dest = B.kind==="stage" ? "worldmap" : "castle";
+  B = null;
+  toast("🏃 にげた!");
+  setMode(dest);
+};
+$$("btnPotion").onclick = ()=>usePotion();
+
+// ---------- 装備屋 ----------
+function openEquip(){
+  let h = `<h2>⚔️ 装備屋 <span class="x" onclick="closeModal()">✕</span></h2>`;
+  h += `<div class="ds" style="color:var(--sub); font-size:12px; margin-bottom:8px;">攻撃 ${heroAtk()} / 防御 ${heroDef()} / HP ${heroMaxHp()} / 👟速度Lv${S.spdLv}(戦闘の移動にも効く!)</div>`;
+  h += `<div class="item"><div class="ic">🧪</div><div class="info"><div class="nm">回復ポーション(所持 ${S.rpg.potions}/15個)</div><div class="ds">戦闘中にHPを50%回復(Qキー or ボタン)</div></div><button class="buy ${S.money>=RPG.potionCost && S.rpg.potions<15?"":"no"}" onclick="buyPotion()">¥${fmt(RPG.potionCost)}</button></div>`;
+  if(S.rpg.rngLv < RNG_MAX){
+    h += `<div class="item"><div class="ic">🌀</div><div class="info"><div class="nm">攻撃範囲拡大 Lv${S.rpg.rngLv}</div><div class="ds">周囲の敵をまとめて斬れる範囲 ${atkRange()} → ${atkRange()+7}</div></div><button class="buy ${S.money>=rngUpCost()?"":"no"}" onclick="buyRange()">¥${fmt(rngUpCost())}</button></div>`;
+  }else{
+    h += `<div class="item done"><div class="ic">🌀</div><div class="info"><div class="nm">攻撃範囲拡大 Lv${S.rpg.rngLv}(最大)</div><div class="ds">攻撃範囲 ${atkRange()}</div></div></div>`;
+  }
+  h += `<div class="ds" style="margin:10px 0 4px; color:var(--sub); font-size:12px;">▼ 武器(いちばん強い所持武器を自動装備)</div>`;
+  const wCur = RPG.weapons.indexOf(curWeapon());
+  RPG.weapons.forEach((wp,i)=>{
+    if(S.rpg.ownedW[i]){
+      h += `<div class="item ${i===wCur?"done":""}"><div class="ic">${wp.ic}</div><div class="info"><div class="nm">${wp.name} ${i===wCur?"(装備中)":""}</div><div class="ds">攻撃力 ${wp.atk}</div></div></div>`;
+    }else{
+      h += `<div class="item"><div class="ic">${wp.ic}</div><div class="info"><div class="nm">${wp.name}</div><div class="ds">攻撃力 ${wp.atk}</div></div><button class="buy ${S.money>=wp.cost?"":"no"}" onclick="buyWeapon(${i})">¥${fmt(wp.cost)}</button></div>`;
+    }
+  });
+  h += `<div class="ds" style="margin:10px 0 4px; color:var(--sub); font-size:12px;">▼ 防具</div>`;
+  const aCur = RPG.armors.indexOf(curArmor());
+  RPG.armors.forEach((ar,i)=>{
+    if(S.rpg.ownedA[i]){
+      h += `<div class="item ${i===aCur?"done":""}"><div class="ic">${ar.ic}</div><div class="info"><div class="nm">${ar.name} ${i===aCur?"(装備中)":""}</div><div class="ds">防御 ${ar.def}・HP +${ar.hp}</div></div></div>`;
+    }else{
+      h += `<div class="item"><div class="ic">${ar.ic}</div><div class="info"><div class="nm">${ar.name}</div><div class="ds">防御 ${ar.def}・HP +${ar.hp}</div></div><button class="buy ${S.money>=ar.cost?"":"no"}" onclick="buyArmor(${i})">¥${fmt(ar.cost)}</button></div>`;
+    }
+  });
+  openModal(h);
+}
+window.buyPotion = function(){
+  if(S.money < RPG.potionCost || S.rpg.potions >= 15) return;
+  S.money -= RPG.potionCost; S.rpg.potions++;
+  sfx("buy"); save(); openEquip(); updateHud(); updatePotionBtn();
+};
+window.buyWeapon = function(i){
+  const wp = RPG.weapons[i];
+  if(S.rpg.ownedW[i] || S.money < wp.cost) return;
+  S.money -= wp.cost; S.rpg.ownedW[i] = true;
+  toast(`${wp.ic} ${wp.name}を手に入れた!`, true);
+  sfx("upgrade"); save(); openEquip(); updateHud();
+};
+window.buyRange = function(){
+  if(S.rpg.rngLv >= RNG_MAX || S.money < rngUpCost()) return;
+  S.money -= rngUpCost(); S.rpg.rngLv++;
+  toast(`🌀 攻撃範囲が広がった!(Lv${S.rpg.rngLv})`);
+  sfx("upgrade"); save(); openEquip(); updateHud();
+};
+window.buyArmor = function(i){
+  const ar = RPG.armors[i];
+  if(S.rpg.ownedA[i] || S.money < ar.cost) return;
+  S.money -= ar.cost; S.rpg.ownedA[i] = true;
+  toast(`${ar.ic} ${ar.name}を手に入れた!`, true);
+  sfx("upgrade"); save(); openEquip(); updateHud();
+};
+$$("btnEquip").onclick = openEquip;
+
+// ---------- 戦闘 ----------
+function startBattle(kind, idx){
+  const defs = kind==="stage" ? STAGES[idx].foes.map(k=>EN[k]) : [kind==="king" ? KINGS[idx] : DEMON];
+  B = {
+    kind, idx, over:0, endT:0, slash:0,
+    hp:heroMaxHp(), maxHp:heroMaxHp(), atkCd:0.3,
+    projs: [],
+    enemies: defs.map((d,i)=>({...d, x:640+((i*95)%230), y:150+i*105, hp:d.hp, maxHp:d.hp, cd:1.2+Math.random()*0.6, scd:1.5+Math.random()})),
+  };
+  player.x = player.tx = 140; player.y = player.ty = 275;
+  setMode("battle");
+  if(kind==="stage") toast(`⚔️ ${STAGES[idx].name} に挑戦!`);
+  else toast(`⚔️ ${defs[0].n} が立ちはだかる!`, true);
+}
+function updatePotionBtn(){ $$("btnPotion").textContent = `🧪 回復 ×${S.rpg.potions}(Q)`; }
+function usePotion(){
+  if(mode!=="battle" || !B || B.over || S.rpg.potions<=0 || B.hp>=B.maxHp) return;
+  S.rpg.potions--;
+  const heal = Math.round(B.maxHp*0.5);
+  B.hp = Math.min(B.maxHp, B.hp+heal);
+  pop(player.x, player.y-55, `+${heal}`, "#5fe08a");
+  sfx("sell"); save(); updatePotionBtn();
+}
+function battleTick(dt){
+  if(B.over){
+    B.endT -= dt;
+    if(B.endT<=0) finishBattle();
+    return;
+  }
+  // 移動(👟スピード強化が効く)
+  let kx=0, ky=0;
+  if(keys["a"]||keys["arrowleft"]) kx--;
+  if(keys["d"]||keys["arrowright"]) kx++;
+  if(keys["w"]||keys["arrowup"]) ky--;
+  if(keys["s"]||keys["arrowdown"]) ky++;
+  if(kx||ky){
+    const n = Math.hypot(kx,ky);
+    player.x = Math.max(30, Math.min(W-30, player.x + kx/n*playerSpd()*dt));
+    player.y = Math.max(70, Math.min(H-30, player.y + ky/n*playerSpd()*dt));
+    player.tx = player.x; player.ty = player.y;
+    player.walk += dt;
+  }else{
+    moveToward(player, playerSpd(), dt);
+  }
+  // 自動攻撃(範囲内の敵をまとめて斬る)
+  B.atkCd -= dt; B.slash -= dt;
+  const w = curWeapon();
+  const rng = atkRange();
+  if(B.atkCd <= 0){
+    const targets = B.enemies.filter(e => e.hp>0 && Math.hypot(e.x-player.x, e.y-player.y) < rng + e.size*0.4);
+    if(targets.length > 0){
+      for(const tgt of targets){
+        const dmg = Math.round(heroAtk()*(0.9+Math.random()*0.2));
+        tgt.hp -= dmg;
+        pop(tgt.x, tgt.y-tgt.size-22, `-${dmg}`, "#ffd257");
+        if(tgt.hp<=0){ pop(tgt.x, tgt.y-10, "💥", "#fff"); confetti(tgt.x, tgt.y, 18); }
+      }
+      B.slash = 0.15;
+      sfx("hit");
+      B.atkCd = w.cd;
+    }
+  }
+  // 敵AI(近接:追いかけて殴る / 遠距離:距離をとって撃つ)
+  for(const e of B.enemies){
+    if(e.hp<=0) continue;
+    const dx = player.x-e.x, dy = player.y-e.y, d = Math.hypot(dx,dy) || 1;
+    if(e.shoot && !e.keepMelee){
+      // 距離をキープ
+      if(d < e.shoot.dist*0.55){
+        e.x = Math.max(40, Math.min(W-40, e.x - dx/d*e.spd*dt));
+        e.y = Math.max(70, Math.min(H-40, e.y - dy/d*e.spd*dt));
+      }else if(d > e.shoot.dist){
+        e.x += dx/d*e.spd*dt; e.y += dy/d*e.spd*dt;
+      }
+    }else if(d > 34){
+      e.x += dx/d*e.spd*dt; e.y += dy/d*e.spd*dt;
+    }
+    // 近接攻撃
+    e.cd -= dt;
+    if(d < 48 && e.cd <= 0){
+      const dmg = Math.max(1, Math.round((e.atk-heroDef())*(0.9+Math.random()*0.2)));
+      B.hp -= dmg;
+      pop(player.x, player.y-55, `-${dmg}`, "#ff7b7b");
+      sfx("hurt");
+      e.cd = 1.15;
+    }
+    // 遠距離攻撃(弾を発射)
+    if(e.shoot){
+      e.scd -= dt;
+      if(e.scd <= 0 && d < e.shoot.dist + 80){
+        B.projs.push({
+          x:e.x, y:e.y, ic:e.shoot.ic,
+          vx:dx/d*e.shoot.spd, vy:dy/d*e.shoot.spd,
+          atk:e.atk*e.shoot.mul, age:0,
+        });
+        e.scd = e.shoot.cd;
+      }
+    }
+  }
+  // 弾の移動と命中判定
+  for(let i=B.projs.length-1;i>=0;i--){
+    const p2 = B.projs[i];
+    p2.x += p2.vx*dt; p2.y += p2.vy*dt; p2.age += dt;
+    if(Math.hypot(p2.x-player.x, p2.y-player.y) < 22){
+      const dmg = Math.max(1, Math.round((p2.atk-heroDef())*(0.9+Math.random()*0.2)));
+      B.hp -= dmg;
+      pop(player.x, player.y-55, `-${dmg}`, "#ff7b7b");
+      sfx("hurt");
+      B.projs.splice(i,1);
+      continue;
+    }
+    if(p2.age > 4 || p2.x < -30 || p2.x > W+30 || p2.y < -30 || p2.y > H+30) B.projs.splice(i,1);
+  }
+  if(B.enemies.every(e=>e.hp<=0)){ B.over = 1; B.endT = 1.4; sfx("expand"); confetti(W/2, H/2, 80); }
+  else if(B.hp <= 0){ B.over = 2; B.endT = 1.4; sfx("lose"); }
+}
+function finishBattle(){
+  const win = B.over === 1;
+  const dest = B.kind==="stage" ? "worldmap" : "castle";
+  if(win){
+    let reward = 0;
+    if(B.kind==="stage"){
+      const first = B.idx >= S.rpg.stage;
+      reward = Math.round(STAGES[B.idx].reward * (first ? 1 : 0.25));
+      if(first) S.rpg.stage = B.idx + 1;
+    }else if(B.kind==="king"){
+      const first = !S.rpg.kings[B.idx];
+      S.rpg.kings[B.idx] = true;
+      reward = Math.round(KINGS[B.idx].reward * (first ? 1 : 0.1));
+    }else{
+      const first = !S.rpg.demon;
+      S.rpg.demon = true;
+      reward = Math.round(DEMON.reward * (first ? 1 : 0.05));
+      toast("🌈 魔王を倒した!世界は救われた!!", true);
+      confetti(W/2, H/2, 200);
+    }
+    S.money += reward; S.totalEarned += reward;
+    toast(`🎉 勝利! 報酬 ¥${fmt(reward)}`, true);
+  }else{
+    toast("💀 やられてしまった…工場で稼いで装備を整えよう");
+  }
+  B = null;
+  setMode(dest);
+  save(); updateHud();
+}
+
+// ---------- マップ / 魔王城のクリック ----------
+function mapTap(p){
+  for(let i=0;i<10;i++){
+    const n = MAP_NODES[i];
+    if(Math.hypot(p.x-n.x, p.y-n.y) > 32) continue;
+    if(i > S.rpg.stage){ toast("🔒 前のステージをクリアしよう"); return; }
+    if(i === 9) setMode("castle");
+    else startBattle("stage", i);
+    return;
+  }
+}
+function castleTap(p){
+  for(let i=0;i<4;i++){
+    const k = KING_POS[i];
+    if(Math.hypot(p.x-k.x, p.y-k.y) < 45){ startBattle("king", i); return; }
+  }
+  if(S.rpg.kings.every(k=>k) && Math.hypot(p.x-DEMON_POS.x, p.y-DEMON_POS.y) < 55){
+    startBattle("demon", 0);
+  }
+}
+
+// ---------- RPG描画 ----------
+function drawFx(){
+  for(const p of pops){
+    ctx.globalAlpha = Math.max(0, 1 - p.age/1.0);
+    ctx.fillStyle = p.color; ctx.font = "bold 15px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(p.text, p.x, p.y - p.age*35);
+    ctx.globalAlpha = 1;
+  }
+  for(const c of confs){
+    ctx.globalAlpha = Math.max(0, 1 - c.age/c.life);
+    ctx.fillStyle = c.color;
+    ctx.fillRect(c.x-c.r/2, c.y-c.r/2, c.r, c.r*1.6);
+    ctx.globalAlpha = 1;
+  }
+}
+function drawMap(t){
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, "#2e5e35"); g.addColorStop(0.30, "#39684a");
+  g.addColorStop(0.40, "#6b87a5"); g.addColorStop(0.68, "#8ea6c2");
+  g.addColorStop(0.78, "#4a2a52"); g.addColorStop(1, "#2c1233");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.font = "24px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("🌲", 60, 250); ctx.fillText("🌼", 150, 160); ctx.fillText("🌳", 260, 100);
+  ctx.fillText("⛄", 430, 120); ctx.fillText("❄️", 560, 420); ctx.fillText("🌨️", 620, 100);
+  ctx.fillText("🌋", 790, 470); ctx.fillText("💀", 730, 330);
+  ctx.fillStyle = "#fff"; ctx.font = "bold 18px sans-serif";
+  ctx.fillText("🗺️ 世界を救う旅 〜 ステージをクリックして挑戦 〜", W/2, 36);
+  if(S.rpg.demon){
+    ctx.fillStyle = "#ffd257"; ctx.font = "bold 15px sans-serif";
+    ctx.fillText("🌈 世界は救われた!(再挑戦もできます)", W/2, 60);
+  }
+  // 経路
+  ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 5; ctx.setLineDash([2, 12]); ctx.lineCap = "round";
+  ctx.beginPath();
+  MAP_NODES.forEach((n,i)=>{ i===0 ? ctx.moveTo(n.x,n.y) : ctx.lineTo(n.x,n.y); });
+  ctx.stroke(); ctx.setLineDash([]);
+  // ノード
+  for(let i=0;i<10;i++){
+    const n = MAP_NODES[i];
+    const cleared = i < S.rpg.stage, unlocked = i <= S.rpg.stage;
+    if(i === 9){
+      ctx.font = "44px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(S.rpg.demon ? "🏳️" : "🏰", n.x, n.y+14);
+      ctx.fillStyle = unlocked ? "#ffd257" : "rgba(255,255,255,.45)";
+      ctx.font = "bold 13px sans-serif";
+      ctx.fillText(unlocked ? "魔王城(クリックで入る)" : "🔒 魔王城", n.x, n.y+34);
+      continue;
+    }
+    const pulse = (!cleared && unlocked) ? 3+Math.sin(t*4)*2 : 0;
+    ctx.fillStyle = cleared ? "#5fe08a" : unlocked ? "#ffd257" : "#4a5674";
+    ctx.beginPath(); ctx.arc(n.x, n.y, 17+pulse, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(n.x, n.y, 17+pulse, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = "#1b2230"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(cleared ? "✓" : (i+1), n.x, n.y+5);
+    if(unlocked){
+      ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif";
+      ctx.fillText(STAGES[i].name, n.x, n.y+34);
+    }
+  }
+  // 主人公トークン
+  const cur = MAP_NODES[Math.min(S.rpg.stage, 9)];
+  drawPerson(cur.x, cur.y-34+Math.sin(t*3)*3, {scale:0.95, walk:0, isPlayer:true});
+  drawFx();
+}
+function battleTheme(){
+  if(!B) return "grass";
+  return B.kind==="stage" ? STAGES[B.idx].theme : "castle";
+}
+function drawBattle(t){
+  const th = battleTheme();
+  let g = ctx.createLinearGradient(0, 0, 0, H);
+  if(th==="grass"){ g.addColorStop(0,"#79b7e8"); g.addColorStop(0.45,"#a5d3f0"); g.addColorStop(0.46,"#3a7d44"); g.addColorStop(1,"#2b5e33"); }
+  else if(th==="snow"){ g.addColorStop(0,"#9fc3e8"); g.addColorStop(0.45,"#cfe2f5"); g.addColorStop(0.46,"#e8eef8"); g.addColorStop(1,"#b8cbe0"); }
+  else if(th==="dark"){ g.addColorStop(0,"#31123f"); g.addColorStop(0.45,"#471c58"); g.addColorStop(0.46,"#3a1745"); g.addColorStop(1,"#1c0b22"); }
+  else { g.addColorStop(0,"#2a2233"); g.addColorStop(0.45,"#3b3247"); g.addColorStop(0.46,"#463a54"); g.addColorStop(1,"#221c2c"); }
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.font = "26px sans-serif"; ctx.textAlign = "center";
+  if(th==="grass"){ ctx.fillText("🌳", 90, 180); ctx.fillText("🌼", 830, 440); ctx.fillText("🌿", 480, 470); }
+  if(th==="snow"){ ctx.fillText("🌨️", 110, 160); ctx.fillText("⛄", 850, 430); }
+  if(th==="dark"){ ctx.fillText("🌋", 120, 440); ctx.fillText("💀", 840, 170); }
+  if(th==="castle"){ ctx.fillText("🕯️", 100, 150); ctx.fillText("🕯️", 860, 150); ctx.fillText("🚩", 480, 120); }
+  // ステージ名
+  ctx.fillStyle = th==="snow" ? "#1b2230" : "#fff"; ctx.font = "bold 17px sans-serif";
+  ctx.fillText(B ? (B.kind==="stage" ? `⚔️ ${STAGES[B.idx].name}` : `⚔️ ${B.enemies[0].n}戦`) : "", W/2, 34);
+  if(!B){ drawFx(); return; }
+  // 敵
+  for(const e of B.enemies){
+    if(e.hp<=0) continue;
+    ctx.font = `${e.size*2}px sans-serif`; ctx.textAlign = "center";
+    ctx.fillText(e.ic, e.x, e.y+e.size*0.7);
+    const bw = Math.max(44, e.size*2.4);
+    ctx.fillStyle = "rgba(0,0,0,.5)";
+    ctx.fillRect(e.x-bw/2, e.y-e.size-14, bw, 7);
+    ctx.fillStyle = "#ff7b7b";
+    ctx.fillRect(e.x-bw/2, e.y-e.size-14, bw*Math.max(0, e.hp/e.maxHp), 7);
+    ctx.fillStyle = th==="snow" ? "#1b2230" : "#fff"; ctx.font = "bold 10px sans-serif";
+    ctx.fillText(e.n, e.x, e.y-e.size-18);
+  }
+  // 攻撃範囲サークル(常時うっすら表示)
+  const rng = atkRange();
+  ctx.strokeStyle = B.slash > 0 ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.22)";
+  ctx.lineWidth = B.slash > 0 ? 3.5 : 1.5;
+  ctx.setLineDash(B.slash > 0 ? [] : [6, 8]);
+  ctx.beginPath(); ctx.arc(player.x, player.y, rng, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+  if(B.slash > 0){
+    ctx.fillStyle = "rgba(255,255,255,.10)";
+    ctx.beginPath(); ctx.arc(player.x, player.y, rng, 0, Math.PI*2); ctx.fill();
+  }
+  // 敵の弾
+  for(const p2 of B.projs){
+    ctx.save();
+    ctx.translate(p2.x, p2.y);
+    ctx.rotate(Math.atan2(p2.vy, p2.vx));
+    ctx.font = "16px sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#ffd257";
+    ctx.fillText(p2.ic, 0, 6);
+    ctx.restore();
+  }
+  // 主人公+武器
+  drawPerson(player.x, player.y, {scale:1.15, walk:player.walk, isPlayer:true});
+  const w = curWeapon();
+  ctx.font = "18px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(w.ic, player.x+20, player.y-14+(B.slash>0 ? -6 : 0));
+  // HPバー
+  ctx.fillStyle = "rgba(0,0,0,.55)";
+  ctx.beginPath(); ctx.roundRect(14, 50, 240, 30, 8); ctx.fill();
+  ctx.fillStyle = "#3a4a66";
+  ctx.fillRect(20, 58, 190, 14);
+  ctx.fillStyle = B.hp/B.maxHp < 0.3 ? "#ff7b7b" : "#5fe08a";
+  ctx.fillRect(20, 58, 190*Math.max(0, B.hp/B.maxHp), 14);
+  ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "left";
+  ctx.fillText(`HP ${Math.max(0,Math.ceil(B.hp))}/${B.maxHp}`, 22, 76);
+  ctx.textAlign = "center";
+  // ピンチ演出
+  if(B.hp/B.maxHp < 0.3 && !B.over){
+    ctx.strokeStyle = `rgba(255,80,80,${0.3+0.3*Math.sin(t*6)})`; ctx.lineWidth = 8;
+    ctx.strokeRect(4, 4, W-8, H-8);
+  }
+  // 勝敗表示
+  if(B.over){
+    ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(0, H/2-50, W, 100);
+    ctx.fillStyle = B.over===1 ? "#ffd257" : "#ff7b7b";
+    ctx.font = "bold 40px sans-serif";
+    ctx.fillText(B.over===1 ? "🎉 勝利!" : "💀 敗北…", W/2, H/2+14);
+  }
+  drawFx();
+}
+function drawCastle(t){
+  ctx.fillStyle = "#241c30"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#2f2540"; ctx.fillRect(0, 260, W, H-260);
+  ctx.fillStyle = "rgba(150,40,60,.5)"; ctx.fillRect(W/2-70, 260, 140, H-260);
+  for(let x=80; x<W; x+=160){
+    ctx.fillStyle = "#3a2f4d"; ctx.fillRect(x-14, 60, 28, 200);
+    ctx.font = "20px sans-serif"; ctx.textAlign = "center";
+    ctx.globalAlpha = 0.6+0.4*Math.sin(t*5+x);
+    ctx.fillText("🔥", x, 70);
+    ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = "#ffd257"; ctx.font = "bold 20px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("🏰 魔王城", W/2, 40);
+  // 四天王
+  for(let i=0;i<4;i++){
+    const k = KING_POS[i], defeated = S.rpg.kings[i];
+    ctx.font = "44px sans-serif";
+    ctx.globalAlpha = defeated ? 0.4 : 1;
+    ctx.fillText(defeated ? "💀" : KINGS[i].ic, k.x, k.y+14);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = defeated ? "rgba(255,255,255,.45)" : "#fff";
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText(`四天王 ${KINGS[i].n}${defeated ? "(撃破済)" : ""}`, k.x, k.y+42);
+  }
+  // 魔王
+  if(S.rpg.kings.every(k=>k)){
+    const pulse = 1 + Math.sin(t*3)*0.08;
+    ctx.save();
+    ctx.translate(DEMON_POS.x, DEMON_POS.y);
+    ctx.scale(pulse, pulse);
+    ctx.font = "70px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(S.rpg.demon ? "💀" : "👿", 0, 24);
+    ctx.restore();
+    ctx.fillStyle = "#ffd257"; ctx.font = "bold 15px sans-serif";
+    ctx.fillText(S.rpg.demon ? "👑 魔王(討伐済・クリックで再戦)" : "👿 魔王が現れた!クリックで最終決戦!!", DEMON_POS.x, DEMON_POS.y+66);
+  }else{
+    ctx.fillStyle = "rgba(255,255,255,.6)"; ctx.font = "13px sans-serif";
+    ctx.fillText("…四天王を全員倒すと、奥から魔王が現れるようだ", DEMON_POS.x, DEMON_POS.y+20);
+  }
+  drawFx();
+}
+
 // ---------- メインループ ----------
 let lastT = performance.now();
 let saveTimer = 0, hudTimer = 0;
@@ -1195,7 +1776,7 @@ if(loaded){
   toast("💾 前回の続きからスタート!");
 }else{
   S = newState();
-  toast("🏭 ようこそ社長! まずは空きスロットにマシンを設置しよう");
+  toast("🏭 工場で稼いで、⚔️ 装備を買って、🌍 世界を救おう!");
 }
 resetActors();
 fit();
