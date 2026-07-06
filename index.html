@@ -145,14 +145,14 @@
 
 // ---------- マシン定義 ----------
 const TYPES = [
-  {name:"ネジ製造機",     ic:"🔩", cost:100,     val:5,    itv:3.0, buf:12, color:"#7f93ad"},
-  {name:"歯車マシン",     ic:"⚙️", cost:600,     val:22,   itv:4.0, buf:12, color:"#b08d57"},
-  {name:"基板プリンタ",   ic:"💾", cost:3000,    val:90,   itv:5.0, buf:10, color:"#4f9e6f"},
-  {name:"ロボット組立機", ic:"🤖", cost:15000,   val:400,  itv:7.0, buf:8,  color:"#5a7fd6"},
-  {name:"AIコア炉",       ic:"🧠", cost:80000,   val:1800, itv:10.0,buf:6,  color:"#b05ad6"},
-  {name:"量子リアクター", ic:"⚛️", cost:450000,  val:9500, itv:14.0,buf:5,  color:"#d65a8f"},
-  {name:"衛星ファクトリー", ic:"🛰️", cost:2500000,  val:45000,  itv:16.0, buf:4, color:"#4fc3d6"},
-  {name:"次元ゲート",       ic:"🌀", cost:12000000, val:220000, itv:22.0, buf:3, color:"#7a5ad6"},
+  {name:"ネジ製造機",     ic:"🔩", cost:100,     val:8,     itv:3.0, buf:12, color:"#7f93ad"},
+  {name:"歯車マシン",     ic:"⚙️", cost:600,     val:33,    itv:4.0, buf:12, color:"#b08d57"},
+  {name:"基板プリンタ",   ic:"💾", cost:3000,    val:135,   itv:5.0, buf:10, color:"#4f9e6f"},
+  {name:"ロボット組立機", ic:"🤖", cost:15000,   val:600,   itv:7.0, buf:8,  color:"#5a7fd6"},
+  {name:"AIコア炉",       ic:"🧠", cost:80000,   val:2700,  itv:10.0,buf:6,  color:"#b05ad6"},
+  {name:"量子リアクター", ic:"⚛️", cost:450000,  val:14250, itv:14.0,buf:5,  color:"#d65a8f"},
+  {name:"衛星ファクトリー", ic:"🛰️", cost:2500000,  val:67500,  itv:16.0, buf:4, color:"#4fc3d6"},
+  {name:"次元ゲート",       ic:"🌀", cost:12000000, val:330000, itv:22.0, buf:3, color:"#7a5ad6"},
 ];
 
 // ---------- 工場拡張レベル ----------
@@ -1465,7 +1465,7 @@ const KINGS = [
   {n:"もこ",   title:"全てを破壊する",         quote:"うおーーーーー!!!",         ic:"🌑", imgKey:"k3", hp:6500, atk:175, spd:115, size:24, reward:1000000,
    keepMelee:true, chCd:6.5, shoot:{ic:"💥", dist:320, cd:2.6, spd:310, mul:0.8}, sp:"aoe", aoeR:120},
 ];
-const DEMON = {n:"Miyaさん", title:"小中最強の男", quote:"ガチでは遠慮しとく", ic:"👿", imgKey:"demon", hp:16000, atk:230, spd:150, size:32, reward:5000000,
+const DEMON = {n:"Miyaさん", title:"小中最強の男", quote:"ガチでは遠慮しとく", ic:"👿", imgKey:"demon", hp:10400, atk:230, spd:150, size:32, reward:5000000,
    keepMelee:true, chCd:6.0, shoot:{ic:"🔥", dist:420, cd:4.0, spd:280, mul:0.45}, sp:"aoe", aoeR:210};
 // ボスの画像(ビルド時に埋め込み)
 const BOSS_IMGS = {};
