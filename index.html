@@ -73,10 +73,15 @@
     width:100%; height:90px; background:#161d2b; color:var(--text);
     border:1px solid var(--line); border-radius:8px; padding:8px; font-size:12px; resize:vertical;
   }
-  input[type=text]{
+  input[type=text], input[type=password]{
     width:100%; background:#161d2b; color:var(--text);
     border:1px solid var(--line); border-radius:8px; padding:8px; font-size:13px;
   }
+  #lock{
+    position:fixed; inset:0; background:linear-gradient(180deg,#0d1524,#1a1030);
+    z-index:100; display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+  }
+  #lock input{width:220px; text-align:center; font-size:24px; letter-spacing:8px;}
   .rankRow{
     display:flex; align-items:center; gap:8px; padding:8px 10px; margin-bottom:6px;
     background:var(--panel2); border:1px solid var(--line); border-radius:10px; font-size:13px;
@@ -135,6 +140,15 @@
 
 <div id="overlay"><div id="modal"></div></div>
 <div id="toasts"></div>
+
+<div id="lock">
+  <div style="font-size:44px;">🔒</div>
+  <div style="font-weight:800; font-size:20px;">合言葉を入力してください</div>
+  <div style="color:var(--sub); font-size:13px;">このゲームは招待制です(最初の1回だけ聞かれます)</div>
+  <input type="password" id="lockInput" inputmode="numeric" maxlength="8" placeholder="????">
+  <button class="hudBtn" id="lockBtn" style="font-size:16px; padding:10px 26px;">🔓 開ける</button>
+  <div id="lockMsg" style="color:var(--red); font-size:14px; font-weight:700; height:18px;"></div>
+</div>
 
 <script>
 "use strict";
@@ -2110,6 +2124,30 @@ resetActors();
 fit();
 updateHud();
 setMode("title");
+
+// ---------- 初回限定の合言葉ロック ----------
+const PASS_KEY = "factory-tycoon-pass-ok";
+if(!localStorage.getItem(PASS_KEY)){
+  $$("lock").style.display = "flex";
+  const tryPass = ()=>{
+    if($$("lockInput").value.trim() === "5353"){
+      localStorage.setItem(PASS_KEY, "1");
+      $$("lock").style.display = "none";
+      toast("🔓 ようこそ!", true);
+    }else{
+      $$("lockMsg").textContent = "❌ 合言葉がちがいます";
+      $$("lockInput").value = "";
+      $$("lockInput").focus();
+    }
+  };
+  $$("lockBtn").onclick = tryPass;
+  $$("lockInput").addEventListener("keydown", e=>{
+    e.stopPropagation();
+    if(e.key === "Enter") tryPass();
+  });
+  setTimeout(()=>$$("lockInput").focus(), 100);
+}
+
 addEventListener("beforeunload", save);
 document.addEventListener("visibilitychange", ()=>{ if(document.hidden) save(); });
 requestAnimationFrame(frame);
