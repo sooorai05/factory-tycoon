@@ -213,6 +213,10 @@ const ACH = [
   {id:"rpg7",  ic:"🏔️", name:"雪原を越えて",     desc:"ステージ7をクリアする",      reward:100000, cond:c=>S.rpg.stage>=7},
   {id:"kings", ic:"👑", name:"四天王撃破",       desc:"四天王を全員倒す",           reward:1000000,cond:c=>S.rpg.kings.every(k=>k)},
   {id:"hero",  ic:"🌈", name:"世界を救った!",   desc:"魔王を倒す",                 reward:10000000,cond:c=>S.rpg.demon},
+  {id:"reb1",  ic:"🔄", name:"新たな旅路",       desc:"転生する",                   reward:50000,  cond:c=>S.reborn>=1},
+  {id:"reb3",  ic:"🌟", name:"輪廻の覇者",       desc:"転生を3回行う",              reward:5000000,cond:c=>S.reborn>=3},
+  {id:"twr10", ic:"🗼", name:"挑戦者",           desc:"無限の塔で10階に到達する",   reward:300000, cond:c=>S.towerBest>=10},
+  {id:"twr25", ic:"🌌", name:"天を突く者",       desc:"無限の塔で25階に到達する",   reward:5000000,cond:c=>S.towerBest>=25},
 ];
 
 // ---------- 状態 ----------
@@ -232,6 +236,9 @@ function newState(){
     opt: {bgm: true, sfx: true},
     rpg: {stage:0, kings:[false,false,false,false], demon:false,
           atkLv:1, defLv:1, hpLv:1, potions:0, rngLv:1},
+    reborn: 0,
+    towerBest: 0,
+    towerUnlocked: false,
     storySeen: false,
     last: Date.now(),
   };
@@ -266,10 +273,13 @@ function migrate(s){
   }
   if(s.rpg.potions > 1) s.rpg.potions = 1;
   if(s.storySeen === undefined) s.storySeen = false;
+  if(!s.reborn) s.reborn = 0;
+  if(!s.towerBest) s.towerBest = 0;
+  if(s.towerUnlocked === undefined) s.towerUnlocked = !!s.rpg.demon;
   return s;
 }
 function facSlots(){ return FAC[S.facLv].slots; }
-function machineVal(m){ return Math.round(TYPES[m.t].val * Math.pow(1.25, m.lv-1)); }
+function machineVal(m){ return Math.round(TYPES[m.t].val * Math.pow(1.25, m.lv-1) * Math.pow(1.3, S.reborn||0)); }
 function machineItv(m){ return TYPES[m.t].itv * Math.pow(0.97, m.lv-1); }
 function machineUpCost(m){ return Math.round(TYPES[m.t].cost * 0.6 * Math.pow(1.55, m.lv)); }
 function typeCost(t){
@@ -475,7 +485,7 @@ function updateHud(){
   $$("money").textContent = "¥" + fmt(S.money);
   const machines = S.slots.filter(Boolean).length;
   $$("subInfo").textContent =
-    `【${FAC[S.facLv].name} Lv${S.facLv}】 所持:${S.carryN}/${capMax()}個  マシン:${machines}/${facSlots()}台  作業員:${S.workers}${S.proWorkers?`+🦾${S.proWorkers}`:""}人  累計:¥${fmt(S.totalEarned)}`;
+    `${S.reborn?`⭐${S.reborn} `:""}【${FAC[S.facLv].name} Lv${S.facLv}】 所持:${S.carryN}/${capMax()}個  マシン:${machines}/${facSlots()}台  作業員:${S.workers}${S.proWorkers?`+🦾${S.proWorkers}`:""}人  累計:¥${fmt(S.totalEarned)}`;
   $$("btnAch").textContent = `🏆 ${achCount()}/${ACH.length}`;
 }
 
@@ -516,6 +526,9 @@ function expandItemHtml(){
 function shopHtml(){
   let h = `<h2>🛒 ショップ <span class="x" onclick="closeModal()">✕</span></h2>`;
   h += expandItemHtml();
+  if(S.rpg.demon || S.reborn > 0){
+    h += `<div class="item"><div class="ic">🔄</div><div class="info"><div class="nm">転生(現在 ⭐${S.reborn})</div><div class="ds">${S.rpg.demon ? "世界を救った今なら、転生して更なる高みへ行ける" : "この世界の魔王を倒すと、また転生できる"}</div></div><button class="buy gold ${S.rpg.demon?"":"no"}" onclick="openReborn()">詳細</button></div>`;
+  }
   h += `<div class="item"><div class="ic">🎒</div><div class="info"><div class="nm">運搬キャパ Lv${S.capLv}</div><div class="ds">一度に運べる数 ${capMax()} → ${capMax()+10}</div></div><button class="buy ${S.money>=capUpCost()?"":"no"}" onclick="buyCap()">¥${fmt(capUpCost())}</button></div>`;
   h += `<div class="item"><div class="ic">👟</div><div class="info"><div class="nm">移動スピード Lv${S.spdLv}</div><div class="ds">歩く速さ +10%</div></div><button class="buy ${S.money>=spdUpCost()?"":"no"}" onclick="buySpd()">¥${fmt(spdUpCost())}</button></div>`;
   h += `<div class="item"><div class="ic">👷</div><div class="info"><div class="nm">作業員を雇う(${S.workers}人)</div><div class="ds">自動で回収・出荷してくれる</div></div><button class="buy ${S.money>=workerCost()?"":"no"}" onclick="buyWorker()">¥${fmt(workerCost())}</button></div>`;
@@ -543,6 +556,46 @@ function openAch(){
   openModal(h);
 }
 
+window.openReborn = function(){
+  if(!S.rpg.demon) return;
+  const nextPct = Math.round((Math.pow(1.3, S.reborn+1)-1)*100);
+  let h = `<h2>🔄 転生 <span class="x" onclick="closeModal()">✕</span></h2>`;
+  h += `<div class="ds" style="color:var(--sub); font-size:13px; line-height:1.8; margin-bottom:10px;">
+    世界を救った者だけの特権。新しい世界で最初からやり直す代わりに、<b style="color:var(--gold)">⭐転生の証</b>を手に入れる。<br><br>
+    <b style="color:var(--gold)">✨ 引き継ぐもの・もらえるもの</b><br>
+    ・全マシンの製品単価 <b>永続+30%</b>(転生後の合計 +${nextPct}%)<br>
+    ・開始資金 ¥${fmt(200 + (S.reborn+1)*20000)}<br>
+    ・実績 / 累計売上 / 🗼塔の記録 / 名前<br><br>
+    <b style="color:var(--red)">💀 失うもの・変わるもの</b><br>
+    ・工場(マシン・拡張・作業員)とお金<br>
+    ・ステータス・攻撃範囲・ポーション・ステージ進行<br>
+    ・敵が全員強くなる(HP×1.6 / 攻撃×1.3)※そのぶん報酬も×1.5
+  </div>`;
+  h += `<div class="row"><button class="buy gold" onclick="doReborn()">🔄 転生する(⭐${S.reborn} → ⭐${S.reborn+1})</button></div>`;
+  openModal(h);
+};
+window.doReborn = function(){
+  if(!S.rpg.demon) return;
+  if(!confirm(`本当に転生しますか?\n工場とステータスは最初からになります。\n(⭐${S.reborn} → ⭐${S.reborn+1})`)) return;
+  S.reborn++;
+  S.money = 200 + S.reborn*20000;
+  S.slots = Array(SLOT_N).fill(null);
+  S.facLv = 1; S.capLv = 1; S.spdLv = 1;
+  S.workers = 0; S.proWorkers = 0;
+  S.carryN = 0; S.carryV = 0;
+  S.rpg.stage = 0;
+  S.rpg.kings = [false,false,false,false];
+  S.rpg.demon = false;
+  S.rpg.atkLv = 1; S.rpg.defLv = 1; S.rpg.hpLv = 1;
+  S.rpg.rngLv = 1; S.rpg.potions = 0;
+  resetActors();
+  closeModal();
+  setMode("factory");
+  sfx("expand");
+  confetti(W/2, H/2, 150);
+  toast(`🔄 転生${S.reborn}回目!新しい世界も魔王に脅かされている…`, true);
+  save(); updateHud();
+};
 window.buyExpand = function(){
   if(S.facLv >= FAC_MAX) return;
   const nx = FAC[S.facLv+1];
@@ -654,7 +707,8 @@ function loadRank(){ try{ return JSON.parse(localStorage.getItem(RANK_KEY)) || [
 function saveRankList(list){ try{ localStorage.setItem(RANK_KEY, JSON.stringify(list.slice(0,50))); }catch(e){} }
 function myName(){ return (localStorage.getItem(NAME_KEY) || "").slice(0,12); }
 function myEntry(){
-  return {n: myName() || "あなた", s: Math.floor(S.totalEarned), a: achCount(), f: S.facLv, d: new Date().toISOString().slice(0,10)};
+  return {n: myName() || "あなた", s: Math.floor(S.totalEarned), a: achCount(), f: S.facLv,
+          t: S.towerBest||0, r: S.reborn||0, d: new Date().toISOString().slice(0,10)};
 }
 function openRank(){
   const me = myEntry();
@@ -663,7 +717,7 @@ function openRank(){
   const medals = ["🥇","🥈","🥉"];
   let h = `<h2>🏅 ランキング(累計売上) <span class="x" onclick="closeModal()">✕</span></h2>`;
   all.forEach((e,i) => {
-    h += `<div class="rankRow ${e.me?"me":""}"><div class="pos">${medals[i]||(i+1)+"位"}</div><div class="rn">${esc(e.n)}${e.me?" (あなた)":""}</div><div class="rs">¥${fmt(e.s)}</div><div class="rx">🏆${e.a} 工場Lv${e.f}</div></div>`;
+    h += `<div class="rankRow ${e.me?"me":""}"><div class="pos">${medals[i]||(i+1)+"位"}</div><div class="rn">${e.r?`⭐${e.r} `:""}${esc(e.n)}${e.me?" (あなた)":""}</div><div class="rs">¥${fmt(e.s)}</div><div class="rx">🏆${e.a}${e.t?` 🗼${e.t}階`:""}</div></div>`;
   });
   h += `<div class="ds" style="color:var(--sub); font-size:12px; margin:10px 0 6px;">▼ 名前を入れて「コードを発行」→ 友達に送信。友達のコードを下に貼って「追加」すると同じ表で競えます。</div>`;
   h += `<input type="text" id="rankName" maxlength="12" placeholder="あなたの名前(12文字まで)" value="${esc(myName())}">`;
@@ -698,8 +752,9 @@ window.doRankAdd = function(){
     if(!e || typeof e.n !== "string" || typeof e.s !== "number") throw 0;
     e.n = e.n.slice(0,12); e.s = Math.max(0, Math.floor(e.s));
     e.a = Math.max(0, Math.floor(e.a||0)); e.f = Math.max(1, Math.floor(e.f||1));
+    e.t = Math.max(0, Math.floor(e.t||0)); e.r = Math.max(0, Math.floor(e.r||0));
     const list = loadRank().filter(o => o.n !== e.n);
-    list.push({n:e.n, s:e.s, a:e.a, f:e.f, d:String(e.d||"").slice(0,10)});
+    list.push({n:e.n, s:e.s, a:e.a, f:e.f, t:e.t, r:e.r, d:String(e.d||"").slice(0,10)});
     saveRankList(list);
     toast(`✅ ${e.n} さんのスコアを追加!`);
     openRank();
@@ -1492,6 +1547,10 @@ function hpUpCost(){ return Math.round(1000 * Math.pow(1.7, S.rpg.hpLv-1)); }
 const RNG_MAX = 6;
 function atkRange(){ return 46 + (S.rpg.rngLv-1)*7; }
 function rngUpCost(){ return Math.round(8000 * Math.pow(3, S.rpg.rngLv-1)); }
+// 転生の倍率(周回するほど敵は強く、報酬と工場は美味しくなる)
+function rebornHpMul(){ return Math.pow(1.6, S.reborn||0); }
+function rebornAtkMul(){ return Math.pow(1.3, S.reborn||0); }
+function rebornRewardMul(){ return Math.pow(1.5, S.reborn||0); }
 
 // ---------- 敵・ステージ ----------
 // shoot: {ic:弾の見た目, dist:射程, cd:発射間隔, spd:弾速, mul:威力倍率} / keepMelee:trueなら撃ちつつ接近もする
@@ -1577,7 +1636,7 @@ function setMode(m){
 $$("btnBack").onclick = ()=>{ setMode(mode==="castle" ? "worldmap" : "factory"); };
 $$("btnFlee").onclick = ()=>{
   if(mode!=="battle" || !B) return;
-  const dest = B.kind==="stage" ? "worldmap" : "castle";
+  const dest = (B.kind==="king" || B.kind==="demon") ? "castle" : "worldmap";
   B = null;
   toast("🏃 にげた!");
   setMode(dest);
@@ -1630,14 +1689,47 @@ window.buyRange = function(){
 };
 $$("btnEquip").onclick = openEquip;
 
+// ---------- 無限の塔:階ごとの敵生成 ----------
+const TOWER_POS = {x:110, y:110};
+function towerFoes(f){
+  const hpMul = Math.pow(1.25, f-1);
+  const atkMul = Math.pow(1.09, f-1);
+  let base, hpF = 1, atkF = 1;
+  if(f % 10 === 0){ base = [DEMON]; hpF = 0.35; atkF = 0.55; }
+  else if(f % 5 === 0){ base = [KINGS[(((f/5)|0)-1) % 4]]; hpF = 0.35; atkF = 0.55; }
+  else{
+    // 弱い敵から順に、階が上がるごとに強い敵が解禁される
+    const pool = ["slime","wolf","garcher","orc","swolf","yeti","switch_","igolem","warlock","demon","garg","dknight","fdragon"];
+    const maxIdx = Math.min(pool.length, 2 + f);
+    const n = Math.min(4, 2 + ((f/6)|0));
+    base = [];
+    for(let i=0;i<n;i++) base.push(EN[pool[(f*3 + i*5) % maxIdx]]);
+  }
+  return base.map(d => ({
+    ...d,
+    hp: Math.max(10, Math.round(d.hp * hpMul * hpF)),
+    atk: Math.max(1, Math.round(d.atk * atkMul * atkF)),
+    spd: Math.min(200, d.spd + f),
+  }));
+}
+
 // ---------- 戦闘 ----------
-function startBattle(kind, idx){
-  const defs = kind==="stage" ? STAGES[idx].foes.map(k=>EN[k]) : [kind==="king" ? KINGS[idx] : DEMON];
+function startBattle(kind, idx, carryHp){
+  let defs;
+  if(kind==="stage") defs = STAGES[idx].foes.map(k=>EN[k]);
+  else if(kind==="king") defs = [KINGS[idx]];
+  else if(kind==="demon") defs = [DEMON];
+  else defs = towerFoes(idx);
+  const hpM = rebornHpMul(), atkM = rebornAtkMul();
   B = {
     kind, idx, over:0, endT:0, slash:0,
-    hp:heroMaxHp(), maxHp:heroMaxHp(), atkCd:0.3,
+    hp: carryHp !== undefined ? carryHp : heroMaxHp(),
+    maxHp:heroMaxHp(), atkCd:0.3,
     projs: [], aoes: [],
-    enemies: defs.map((d,i)=>({...d, x:640+((i*95)%230), y:150+i*105, hp:d.hp, maxHp:d.hp, cd:1.2+Math.random()*0.6, scd:1.5+Math.random()})),
+    enemies: defs.map((d,i)=>({...d,
+      x:640+((i*95)%230), y:150+i*105,
+      hp:Math.round(d.hp*hpM), maxHp:Math.round(d.hp*hpM), atk:Math.round(d.atk*atkM),
+      cd:1.2+Math.random()*0.6, scd:1.5+Math.random()})),
   };
   player.x = player.tx = 140; player.y = player.ty = 275;
   if(kind!=="stage" && defs[0].quote){
@@ -1646,6 +1738,7 @@ function startBattle(kind, idx){
   }
   setMode("battle");
   if(kind==="stage") toast(`⚔️ ${STAGES[idx].name} に挑戦!`);
+  else if(kind==="tower"){ if(idx===1) toast("🗼 無限の塔に挑戦!どこまで登れるか…", true); }
   else toast(`⚔️ ${defs[0].n} が立ちはだかる!`, true);
 }
 function updatePotionBtn(){ $$("btnPotion").textContent = `🧪 回復 ×${S.rpg.potions}(Q)`; }
@@ -1809,22 +1902,50 @@ function battleTick(dt){
 }
 function finishBattle(){
   const win = B.over === 1;
+  // 無限の塔:勝てば次の階へ(HPは25%だけ回復して持ち越し)
+  if(B.kind === "tower"){
+    if(win){
+      const reward = Math.round(1500 * Math.pow(1.22, B.idx-1) * rebornRewardMul());
+      S.money += reward; S.totalEarned += reward;
+      if(B.idx > S.towerBest){
+        S.towerBest = B.idx;
+        toast(`🗼 ${B.idx}階 制覇!【最高記録】 +¥${fmt(reward)}`, true);
+      }else{
+        toast(`🗼 ${B.idx}階 制覇! +¥${fmt(reward)}`);
+      }
+      const carry = Math.min(heroMaxHp(), Math.round(B.hp + heroMaxHp()*0.25));
+      const next = B.idx + 1;
+      B = null;
+      save(); updateHud();
+      startBattle("tower", next, carry);
+    }else{
+      toast(`💀 ${B.idx}階で力尽きた…(最高記録 ${S.towerBest}階)`);
+      B = null;
+      setMode("worldmap");
+      save(); updateHud();
+    }
+    return;
+  }
   const dest = B.kind==="stage" ? "worldmap" : "castle";
   if(win){
     let reward = 0;
     if(B.kind==="stage"){
       const first = B.idx >= S.rpg.stage;
-      reward = Math.round(STAGES[B.idx].reward * (first ? 1 : 0.25));
+      reward = Math.round(STAGES[B.idx].reward * (first ? 1 : 0.25) * rebornRewardMul());
       if(first) S.rpg.stage = B.idx + 1;
     }else if(B.kind==="king"){
       const first = !S.rpg.kings[B.idx];
       S.rpg.kings[B.idx] = true;
-      reward = Math.round(KINGS[B.idx].reward * (first ? 1 : 0.1));
+      reward = Math.round(KINGS[B.idx].reward * (first ? 1 : 0.1) * rebornRewardMul());
     }else{
       const first = !S.rpg.demon;
       S.rpg.demon = true;
-      reward = Math.round(DEMON.reward * (first ? 1 : 0.05));
+      reward = Math.round(DEMON.reward * (first ? 1 : 0.05) * rebornRewardMul());
       toast("🌈 魔王を倒した!世界は救われた!!", true);
+      if(!S.towerUnlocked){
+        S.towerUnlocked = true;
+        setTimeout(()=>toast("🗼 マップに「無限の塔」が現れた! 🔄 ショップで「転生」も解放!", true), 1800);
+      }
       confetti(W/2, H/2, 200);
     }
     S.money += reward; S.totalEarned += reward;
@@ -1839,6 +1960,10 @@ function finishBattle(){
 
 // ---------- マップ / 魔王城のクリック ----------
 function mapTap(p){
+  if(S.towerUnlocked && Math.hypot(p.x-TOWER_POS.x, p.y-TOWER_POS.y) < 45){
+    startBattle("tower", 1);
+    return;
+  }
   for(let i=0;i<10;i++){
     const n = MAP_NODES[i];
     if(Math.hypot(p.x-n.x, p.y-n.y) > 32) continue;
@@ -1889,6 +2014,20 @@ function drawMap(t){
     ctx.fillStyle = "#ffd257"; ctx.font = "bold 15px sans-serif";
     ctx.fillText("🌈 世界は救われた!(再挑戦もできます)", W/2, 60);
   }
+  // 無限の塔(魔王を一度でも倒すと解放)
+  if(S.towerUnlocked){
+    const tw = 1 + Math.sin(t*2.5)*0.04;
+    ctx.save();
+    ctx.translate(TOWER_POS.x, TOWER_POS.y);
+    ctx.scale(tw, tw);
+    ctx.font = "52px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("🗼", 0, 16);
+    ctx.restore();
+    ctx.fillStyle = "#ffd257"; ctx.font = "bold 13px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("無限の塔(クリックで挑戦)", TOWER_POS.x, TOWER_POS.y+40);
+    ctx.fillStyle = "#fff"; ctx.font = "11px sans-serif";
+    ctx.fillText(`最高記録 ${S.towerBest}階`, TOWER_POS.x, TOWER_POS.y+56);
+  }
   // 経路
   ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 5; ctx.setLineDash([2, 12]); ctx.lineCap = "round";
   ctx.beginPath();
@@ -1925,7 +2064,9 @@ function drawMap(t){
 }
 function battleTheme(){
   if(!B) return "grass";
-  return B.kind==="stage" ? STAGES[B.idx].theme : "castle";
+  if(B.kind==="stage") return STAGES[B.idx].theme;
+  if(B.kind==="tower") return ["grass","snow","dark"][((B.idx-1)/3|0) % 3];
+  return "castle";
 }
 function drawBattle(t){
   const th = battleTheme();
@@ -1942,7 +2083,7 @@ function drawBattle(t){
   if(th==="castle"){ ctx.fillText("🕯️", 100, 150); ctx.fillText("🕯️", 860, 150); ctx.fillText("🚩", 480, 120); }
   // ステージ名
   ctx.fillStyle = th==="snow" ? "#1b2230" : "#fff"; ctx.font = "bold 17px sans-serif";
-  ctx.fillText(B ? (B.kind==="stage" ? `⚔️ ${STAGES[B.idx].name}` : `⚔️ ${B.enemies[0].n}戦`) : "", W/2, 34);
+  ctx.fillText(B ? (B.kind==="stage" ? `⚔️ ${STAGES[B.idx].name}` : B.kind==="tower" ? `🗼 無限の塔 ${B.idx}階(最高 ${S.towerBest}階)` : `⚔️ ${B.enemies[0].n}戦`) : "", W/2, 34);
   if(!B){ drawFx(); return; }
   // 敵
   for(const e of B.enemies){
