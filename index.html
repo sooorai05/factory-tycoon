@@ -914,6 +914,105 @@ function draw(t){
   if(mode==="castle"){ drawCastle(t); return; }
   drawFactory(t);
 }
+// 色を明るく/暗くする(2.5D の面の陰影用)
+function shade(hex, f){
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, Math.round(((n>>16)&255)*f)));
+  const g = Math.max(0, Math.min(255, Math.round(((n>>8)&255)*f)));
+  const b = Math.max(0, Math.min(255, Math.round((n&255)*f)));
+  return `rgb(${r},${g},${b})`;
+}
+// マシンを立体の箱として描く(座標・クリック判定は従来のまま)
+function drawMachine3D(p, m, i, t){
+  const tp = TYPES[m.t];
+  const producing = m.buf < tp.buf;
+  // 接地影
+  ctx.fillStyle = "rgba(0,0,0,.30)";
+  ctx.beginPath(); ctx.ellipse(p.x+7, p.y+24, 54, 13, 0, 0, Math.PI*2); ctx.fill();
+  // 上面(奥行き)
+  ctx.fillStyle = shade(tp.color, 1.4);
+  ctx.beginPath();
+  ctx.moveTo(p.x-45, p.y-40); ctx.lineTo(p.x+45, p.y-40);
+  ctx.lineTo(p.x+55, p.y-53); ctx.lineTo(p.x-35, p.y-53);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 1;
+  ctx.stroke();
+  // 右側面(奥行き)
+  ctx.fillStyle = shade(tp.color, 0.55);
+  ctx.beginPath();
+  ctx.moveTo(p.x+45, p.y-40); ctx.lineTo(p.x+55, p.y-53);
+  ctx.lineTo(p.x+55, p.y+5); ctx.lineTo(p.x+45, p.y+18);
+  ctx.closePath(); ctx.fill();
+  // 前面(金属筐体)
+  ctx.fillStyle = tp.color;
+  ctx.beginPath(); ctx.roundRect(p.x-45, p.y-40, 90, 58, 8); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.16)";
+  ctx.beginPath(); ctx.roundRect(p.x-45, p.y-40, 90, 12, 8); ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,.22)";
+  ctx.beginPath(); ctx.roundRect(p.x-45, p.y+6, 90, 12, 6); ctx.fill();
+  // ボルト
+  ctx.fillStyle = "rgba(10,14,22,.6)";
+  for(const b of [[-39,-34],[39,-34],[-39,12],[39,12]]){
+    ctx.beginPath(); ctx.arc(p.x+b[0], p.y+b[1], 2, 0, Math.PI*2); ctx.fill();
+  }
+  // 側面の通気口
+  ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 2;
+  for(let k=0;k<3;k++){
+    ctx.beginPath(); ctx.moveTo(p.x-38, p.y-26+k*7); ctx.lineTo(p.x-24, p.y-26+k*7); ctx.stroke();
+  }
+  // 回転ギア(稼働中だけ回る)
+  ctx.save();
+  ctx.translate(p.x+31, p.y-22);
+  ctx.rotate(producing ? t*2.5+i : 0.6);
+  ctx.fillStyle = "rgba(15,20,32,.55)";
+  for(let k=0;k<8;k++){ ctx.rotate(Math.PI/4); ctx.fillRect(-1.6, -9, 3.2, 4); }
+  ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = tp.color;
+  ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+  // ステータスランプ(緑=稼働中 / 赤=満杯)
+  ctx.fillStyle = producing ? `rgba(95,224,138,${(0.45+0.55*(Math.sin(t*6+i)+1)/2).toFixed(2)})` : "#ff7b7b";
+  ctx.beginPath(); ctx.arc(p.x+38, p.y-34, 3, 0, Math.PI*2); ctx.fill();
+  // プレス機(生産の進みに合わせて押し込む)
+  const press = producing ? Math.min(1, m.timer/machineItv(m)) : 0;
+  const py = p.y - 36 + press*12;
+  ctx.fillStyle = "rgba(15,20,32,.5)";
+  ctx.fillRect(p.x-4, p.y-40, 8, py-(p.y-40));
+  ctx.fillRect(p.x-13, py, 26, 6);
+  // 製品アイコン
+  ctx.font = "22px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(tp.ic, p.x, p.y+2);
+  // 排出トレイ(製品が1個ずつ見える)
+  ctx.fillStyle = "rgba(8,12,20,.55)";
+  ctx.beginPath(); ctx.roundRect(p.x-40, p.y+22, 80, 16, 4); ctx.fill();
+  const cnt = Math.floor(m.buf);
+  const shown = cnt > 6 ? 5 : cnt;
+  for(let k=0;k<shown;k++){
+    ctx.fillStyle = "rgba(220,228,244,.85)";
+    ctx.beginPath(); ctx.arc(p.x-33+k*13, p.y+30, 5.5, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.font = "11px sans-serif"; ctx.fillStyle = "#fff";
+  for(let k=0;k<shown;k++) ctx.fillText(tp.ic, p.x-33+k*13, p.y+34);
+  if(cnt > 6){
+    ctx.fillStyle = "#ffd257"; ctx.font = "bold 10px sans-serif";
+    ctx.fillText(`+${cnt-5}`, p.x+31, p.y+34);
+  }
+  // 名前・Lv
+  ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif";
+  ctx.fillText(`${tp.name} Lv${m.lv}`, p.x, p.y+50);
+  // 貯蔵ゲージ(上面の上に浮かせる)
+  const ratio = m.buf/tp.buf;
+  ctx.fillStyle = "rgba(0,0,0,.4)";
+  ctx.fillRect(p.x-40, p.y-66, 80, 9);
+  ctx.fillStyle = ratio>=1 ? "#ff7b7b" : "#5fe08a";
+  ctx.fillRect(p.x-40, p.y-66, 80*ratio, 9);
+  ctx.fillStyle = "#fff"; ctx.font = "9px sans-serif";
+  ctx.fillText(`${Math.floor(m.buf)}/${tp.buf}`, p.x, p.y-58.5);
+  if(ratio>=1){
+    ctx.fillStyle = "#ff7b7b"; ctx.font = "bold 11px sans-serif";
+    ctx.fillText("満杯!", p.x+62, p.y-58);
+  }
+}
 function drawFactory(t){
   ctx.clearRect(0,0,W,H);
   const fac = FAC[S.facLv];
@@ -923,14 +1022,30 @@ function drawFactory(t){
       ctx.fillRect(x,y,60,60);
     }
   }
+  // 床の奥行き陰影(奥は明るく、手前は暗く)
+  const fg = ctx.createLinearGradient(0, 0, 0, H);
+  fg.addColorStop(0, "rgba(255,255,255,.06)");
+  fg.addColorStop(0.5, "rgba(0,0,0,0)");
+  fg.addColorStop(1, "rgba(0,0,0,.24)");
+  ctx.fillStyle = fg; ctx.fillRect(0, 0, W, H);
   drawDeco(t);
 
-  // 出荷口
+  // 出荷口(3D)
+  const dy0 = DOCK.y-DOCK.h/2;
+  ctx.fillStyle = "rgba(0,0,0,.28)";
+  ctx.beginPath(); ctx.ellipse(DOCK.x+38, DOCK.y+DOCK.h/2+4, 44, 10, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = S.facLv>=5 ? "#6b5c2e" : "#46587e";
+  ctx.beginPath();
+  ctx.moveTo(DOCK.x, dy0); ctx.lineTo(DOCK.x+DOCK.w, dy0);
+  ctx.lineTo(DOCK.x+DOCK.w+8, dy0-14); ctx.lineTo(DOCK.x+8, dy0-14);
+  ctx.closePath(); ctx.fill();
   ctx.fillStyle = S.facLv>=5 ? "#4a4020" : "#31405e";
-  ctx.fillRect(DOCK.x, DOCK.y-DOCK.h/2, DOCK.w, DOCK.h);
+  ctx.fillRect(DOCK.x, dy0, DOCK.w, DOCK.h);
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.fillRect(DOCK.x, dy0, 5, DOCK.h);
   ctx.fillStyle = "#ffd257";
   for(let i=0;i<4;i++){
-    ctx.fillRect(DOCK.x, DOCK.y-DOCK.h/2 + 8 + i*38, 8, 22);
+    ctx.fillRect(DOCK.x, dy0 + 8 + i*38, 8, 22);
   }
   ctx.save();
   ctx.translate(DOCK.x+38, DOCK.y);
@@ -939,7 +1054,10 @@ function drawFactory(t){
   ctx.fillText("🚚 出荷口", 0, 0);
   ctx.restore();
 
-  // ⚔️「世界を救う」ゲート(左端)
+  // ⚔️「世界を救う」ゲート(左端・3D枠つき)
+  ctx.fillStyle = "#38195a";
+  ctx.fillRect(0, 181, 46, 9);
+  ctx.fillRect(38, 181, 8, 186);
   const gg = ctx.createLinearGradient(0, 190, 40, 190);
   gg.addColorStop(0, "#5a2d8a"); gg.addColorStop(1, "#8a55c8");
   ctx.fillStyle = gg;
@@ -955,7 +1073,7 @@ function drawFactory(t){
   ctx.fillText("⚔️ 世界を救う", 0, 9);
   ctx.restore();
 
-  // マシンスロット
+  // 空き/ロック中スロット(床のマーキングなので平面のまま)
   for(let i=0;i<SLOT_N;i++){
     const p = SLOT_POS[i], m = S.slots[i];
     if(i >= facSlots()){
@@ -967,89 +1085,47 @@ function drawFactory(t){
       ctx.fillText("🔒", p.x, p.y+2);
       ctx.fillStyle = "rgba(159,176,204,.55)"; ctx.font = "10px sans-serif";
       ctx.fillText("拡張で解放", p.x, p.y+22);
-      continue;
-    }
-    if(!m){
+    }else if(!m){
       ctx.strokeStyle = "rgba(159,176,204,.4)"; ctx.lineWidth = 2; ctx.setLineDash([6,6]);
       ctx.strokeRect(p.x-45, p.y-40, 90, 80);
       ctx.setLineDash([]);
       ctx.fillStyle = "rgba(159,176,204,.5)";
       ctx.font = "13px sans-serif"; ctx.textAlign = "center";
       ctx.fillText("＋ 空きスロット", p.x, p.y+4);
-      continue;
-    }
-    const tp = TYPES[m.t];
-    const producing = m.buf < tp.buf;
-    // 本体(金属筐体)
-    ctx.fillStyle = tp.color;
-    ctx.beginPath(); ctx.roundRect(p.x-45, p.y-40, 90, 58, 8); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,.16)";
-    ctx.beginPath(); ctx.roundRect(p.x-45, p.y-40, 90, 12, 8); ctx.fill();
-    ctx.fillStyle = "rgba(0,0,0,.22)";
-    ctx.beginPath(); ctx.roundRect(p.x-45, p.y+6, 90, 12, 6); ctx.fill();
-    // ボルト
-    ctx.fillStyle = "rgba(10,14,22,.6)";
-    for(const b of [[-39,-34],[39,-34],[-39,12],[39,12]]){
-      ctx.beginPath(); ctx.arc(p.x+b[0], p.y+b[1], 2, 0, Math.PI*2); ctx.fill();
-    }
-    // 側面の通気口
-    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 2;
-    for(let k=0;k<3;k++){
-      ctx.beginPath(); ctx.moveTo(p.x-38, p.y-26+k*7); ctx.lineTo(p.x-24, p.y-26+k*7); ctx.stroke();
-    }
-    // 回転ギア(稼働中だけ回る)
-    ctx.save();
-    ctx.translate(p.x+31, p.y-22);
-    ctx.rotate(producing ? t*2.5+i : 0.6);
-    ctx.fillStyle = "rgba(15,20,32,.55)";
-    for(let k=0;k<8;k++){ ctx.rotate(Math.PI/4); ctx.fillRect(-1.6, -9, 3.2, 4); }
-    ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = tp.color;
-    ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
-    // ステータスランプ(緑=稼働中 / 赤=満杯)
-    ctx.fillStyle = producing ? `rgba(95,224,138,${(0.45+0.55*(Math.sin(t*6+i)+1)/2).toFixed(2)})` : "#ff7b7b";
-    ctx.beginPath(); ctx.arc(p.x+38, p.y-34, 3, 0, Math.PI*2); ctx.fill();
-    // プレス機(生産の進みに合わせて押し込む)
-    const press = producing ? Math.min(1, m.timer/machineItv(m)) : 0;
-    const py = p.y - 36 + press*12;
-    ctx.fillStyle = "rgba(15,20,32,.5)";
-    ctx.fillRect(p.x-4, p.y-40, 8, py-(p.y-40));
-    ctx.fillRect(p.x-13, py, 26, 6);
-    // 製品アイコン
-    ctx.font = "22px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(tp.ic, p.x, p.y+2);
-    // 排出トレイ(製品が1個ずつ見える)
-    ctx.fillStyle = "rgba(8,12,20,.55)";
-    ctx.beginPath(); ctx.roundRect(p.x-40, p.y+22, 80, 16, 4); ctx.fill();
-    const cnt = Math.floor(m.buf);
-    const shown = cnt > 6 ? 5 : cnt;
-    for(let k=0;k<shown;k++){
-      ctx.fillStyle = "rgba(220,228,244,.85)";
-      ctx.beginPath(); ctx.arc(p.x-33+k*13, p.y+30, 5.5, 0, Math.PI*2); ctx.fill();
-    }
-    ctx.font = "11px sans-serif"; ctx.fillStyle = "#fff";
-    for(let k=0;k<shown;k++) ctx.fillText(tp.ic, p.x-33+k*13, p.y+34);
-    if(cnt > 6){
-      ctx.fillStyle = "#ffd257"; ctx.font = "bold 10px sans-serif";
-      ctx.fillText(`+${cnt-5}`, p.x+31, p.y+34);
-    }
-    // 名前・Lv
-    ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif";
-    ctx.fillText(`${tp.name} Lv${m.lv}`, p.x, p.y+50);
-    // 貯蔵ゲージ
-    const ratio = m.buf/tp.buf;
-    ctx.fillStyle = "rgba(0,0,0,.4)";
-    ctx.fillRect(p.x-40, p.y-52, 80, 9);
-    ctx.fillStyle = ratio>=1 ? "#ff7b7b" : "#5fe08a";
-    ctx.fillRect(p.x-40, p.y-52, 80*ratio, 9);
-    ctx.fillStyle = "#fff"; ctx.font = "9px sans-serif";
-    ctx.fillText(`${Math.floor(m.buf)}/${tp.buf}`, p.x, p.y-44.5);
-    if(ratio>=1){
-      ctx.fillStyle = "#ff7b7b"; ctx.font = "bold 11px sans-serif";
-      ctx.fillText("満杯!", p.x+55, p.y-44);
     }
   }
+
+  // マシン・作業員・プレイヤーを奥から手前の順に描く(前後関係が正しくなる)
+  const rl = [];
+  for(let i=0;i<SLOT_N;i++){
+    const p = SLOT_POS[i], m = S.slots[i];
+    if(m && i < facSlots()) rl.push({y: p.y+40, f: ()=>drawMachine3D(p, m, i, t)});
+  }
+  for(const w of workers){
+    rl.push({y: w.y+20, f: ()=>{
+      if(w.pro) drawPerson(w.x, w.y, {shirt:"#d4682f", helmet:"#ffd257", scale:0.95, walk:w.walk});
+      else      drawPerson(w.x, w.y, {shirt:"#4a9e5f", helmet:"#e8e8e8", scale:0.85, walk:w.walk});
+      if(w.carryN>0){
+        ctx.font="12px sans-serif"; ctx.textAlign="center";
+        ctx.fillText("📦", w.x+12, w.y-24);
+        if(w.pro){
+          ctx.fillStyle = "#ffd257"; ctx.font = "bold 10px sans-serif";
+          ctx.fillText(`×${w.carryN}`, w.x+24, w.y-22);
+        }
+      }
+    }});
+  }
+  rl.push({y: player.y+20, f: ()=>{
+    drawPerson(player.x, player.y, {shirt:"#2f7fd4", helmet:"#f5c542", scale:1.15, walk:player.walk, isPlayer:true});
+    if(S.carryN>0){
+      ctx.font = "14px sans-serif"; ctx.textAlign="center";
+      ctx.fillText("📦", player.x+15, player.y-30);
+      ctx.fillStyle = "#ffd257"; ctx.font = "bold 11px sans-serif";
+      ctx.fillText(`${S.carryN}個 ¥${fmt(S.carryV)}`, player.x, player.y-46);
+    }
+  }});
+  rl.sort((a,b)=>a.y-b.y);
+  for(const r of rl) r.f();
 
   // 製品の飛び出しアニメ
   for(const ip of itemPops){
@@ -1059,28 +1135,6 @@ function drawFactory(t){
     const y = ip.y0 + (ip.y1-ip.y0)*T - Math.sin(T*Math.PI)*20;
     ctx.font = "13px sans-serif"; ctx.textAlign = "center";
     ctx.fillText(ip.ic, x, y);
-  }
-
-  // 作業員(🦾スーパー作業員はオレンジ服+金ヘルメット)
-  for(const w of workers){
-    if(w.pro) drawPerson(w.x, w.y, {shirt:"#d4682f", helmet:"#ffd257", scale:0.95, walk:w.walk});
-    else      drawPerson(w.x, w.y, {shirt:"#4a9e5f", helmet:"#e8e8e8", scale:0.85, walk:w.walk});
-    if(w.carryN>0){
-      ctx.font="12px sans-serif"; ctx.textAlign="center";
-      ctx.fillText("📦", w.x+12, w.y-24);
-      if(w.pro){
-        ctx.fillStyle = "#ffd257"; ctx.font = "bold 10px sans-serif";
-        ctx.fillText(`×${w.carryN}`, w.x+24, w.y-22);
-      }
-    }
-  }
-  // プレイヤー
-  drawPerson(player.x, player.y, {shirt:"#2f7fd4", helmet:"#f5c542", scale:1.15, walk:player.walk, isPlayer:true});
-  if(S.carryN>0){
-    ctx.font = "14px sans-serif"; ctx.textAlign="center";
-    ctx.fillText("📦", player.x+15, player.y-30);
-    ctx.fillStyle = "#ffd257"; ctx.font = "bold 11px sans-serif";
-    ctx.fillText(`${S.carryN}個 ¥${fmt(S.carryV)}`, player.x, player.y-46);
   }
 
   // 収益ポップ
