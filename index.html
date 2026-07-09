@@ -131,6 +131,7 @@
   <canvas id="cv"></canvas>
   <button class="hudBtn" id="btnBack" style="display:none; position:absolute; left:12px; top:12px; z-index:5;">🏭 工場に戻る</button>
   <div id="battleBtns" style="display:none; position:absolute; right:12px; bottom:12px; z-index:5; gap:8px;">
+    <button class="hudBtn" id="btnUlt">💥 0%</button>
     <button class="hudBtn" id="btnPotion">🧪 回復(Q)</button>
     <button class="hudBtn" id="btnFlee">🏳️ にげる</button>
   </div>
@@ -405,6 +406,7 @@ function sfx(name){
     case "hit":     tone(sfxGain, 200, 0.07, "square", 0.15, 0, 120); break;
     case "hurt":    tone(sfxGain, 130, 0.16, "sawtooth", 0.20, 0, 70); break;
     case "boom":    tone(sfxGain, 90, 0.35, "sawtooth", 0.30, 0, 35); tone(sfxGain, 55, 0.4, "square", 0.2, 0.03, 30); break;
+    case "ult":     tone(sfxGain, 200, 0.25, "sawtooth", 0.18, 0, 900); tone(sfxGain, 120, 0.45, "sawtooth", 0.30, 0.18, 40); tone(sfxGain, 1046, 0.3, "triangle", 0.2, 0.2); break;
     case "lose":    [392,330,262,196].forEach((f,k)=>tone(sfxGain, f, 0.22, "triangle", 0.18, k*0.16)); break;
   }
 }
@@ -796,6 +798,7 @@ addEventListener("keydown", e=>{
   keys[e.key.toLowerCase()] = true;
   if(e.key==="Escape") closeModal();
   if(e.key.toLowerCase()==="q") usePotion();
+  if(e.key.toLowerCase()==="e") useUlt();
 });
 addEventListener("keyup", e=>{ keys[e.key.toLowerCase()] = false; });
 
@@ -1583,16 +1586,16 @@ const STAGES = [
 // sp: 固有特殊攻撃 "ring"=全方位弾幕 / "blink"=瞬間移動 / "aoe"=周囲大爆発
 // chCd: 突進のクールタイム(四天王・魔王は全員デフォルトで突進持ち。GINIは突進の名手で高頻度)
 const KINGS = [
-  {n:"G",      title:"うるさいなー",           quote:"なるほどー!そういうことか!", ic:"🦍", imgKey:"k0", hp:4000, atk:120, spd:90,  size:26, reward:500000,
+  {n:"G",      title:"うるさいなー",           quote:"なるほどー!そういうことか!", quote2:"うるさいなー!!本気でいくぞ!", ic:"🦍", imgKey:"k0", hp:4000, atk:120, spd:90,  size:26, reward:500000,
    keepMelee:true, chCd:3.5, shoot:{ic:"📢", dist:260, cd:3.0, spd:255, mul:0.7}},
-  {n:"T島",    title:"世界最強のメンタル",     quote:"金ない女は論外",               ic:"❄️", imgKey:"k1", hp:4800, atk:135, spd:105, size:24, reward:600000,
+  {n:"T島",    title:"世界最強のメンタル",     quote:"金ない女は論外",               quote2:"メンタルは世界最強なんでね",   ic:"❄️", imgKey:"k1", hp:4800, atk:135, spd:105, size:24, reward:600000,
    keepMelee:true, chCd:6.5, shoot:{ic:"💢", dist:300, cd:2.4, spd:290, mul:0.8}, sp:"ring"},
-  {n:"MD前衛", title:"人であって人であらず 人非人", quote:"ごめんけど、遠慮しとく",   ic:"🔥", imgKey:"k2", hp:5500, atk:155, spd:95,  size:24, reward:750000,
+  {n:"MD前衛", title:"人であって人であらず 人非人", quote:"ごめんけど、遠慮しとく",   quote2:"…やっぱ遠慮せんとくわ",       ic:"🔥", imgKey:"k2", hp:5500, atk:155, spd:95,  size:24, reward:750000,
    keepMelee:true, chCd:6.5, shoot:{ic:"🚫", dist:280, cd:2.8, spd:275, mul:0.75}, sp:"blink"},
-  {n:"もこ",   title:"全てを破壊する",         quote:"うおーーーーー!!!",         ic:"🌑", imgKey:"k3", hp:6500, atk:175, spd:115, size:24, reward:1000000,
+  {n:"もこ",   title:"全てを破壊する",         quote:"うおーーーーー!!!",         quote2:"うおおおおおおお!!!!!",   ic:"🌑", imgKey:"k3", hp:6500, atk:175, spd:115, size:24, reward:1000000,
    keepMelee:true, chCd:6.5, shoot:{ic:"💥", dist:320, cd:2.6, spd:310, mul:0.8}, sp:"aoe", aoeR:120},
 ];
-const DEMON = {n:"Miyaさん", title:"小中最強の男", quote:"ガチでは遠慮しとく", ic:"👿", imgKey:"demon", hp:10400, atk:230, spd:150, size:32, reward:5000000,
+const DEMON = {n:"Miyaさん", title:"小中最強の男", quote:"ガチでは遠慮しとく", quote2:"…ガチでいくわ", ic:"👿", imgKey:"demon", hp:10400, atk:230, spd:150, size:32, reward:5000000,
    keepMelee:true, chCd:6.0, shoot:{ic:"🔥", dist:420, cd:4.0, spd:280, mul:0.45}, sp:"aoe", aoeR:210};
 // ボスの画像(ビルド時に埋め込み)
 const BOSS_IMGS = {};
@@ -1630,7 +1633,7 @@ function setMode(m){
     player.x = player.tx = 95; player.y = player.ty = 275;
     gateCd = 1.5;
   }
-  if(m==="battle") updatePotionBtn();
+  if(m==="battle"){ updatePotionBtn(); updateUltBtn(); }
   updateBgmTrack();
 }
 $$("btnBack").onclick = ()=>{ setMode(mode==="castle" ? "worldmap" : "factory"); };
@@ -1642,6 +1645,7 @@ $$("btnFlee").onclick = ()=>{
   setMode(dest);
 };
 $$("btnPotion").onclick = ()=>usePotion();
+$$("btnUlt").onclick = ()=>useUlt();
 
 // ---------- 強化所(ステータス制:金の振り方で自分だけのビルドを作る) ----------
 function openEquip(){
@@ -1714,7 +1718,7 @@ function towerFoes(f){
 }
 
 // ---------- 戦闘 ----------
-function startBattle(kind, idx, carryHp){
+function startBattle(kind, idx, carryHp, carryGauge){
   let defs;
   if(kind==="stage") defs = STAGES[idx].foes.map(k=>EN[k]);
   else if(kind==="king") defs = [KINGS[idx]];
@@ -1725,6 +1729,7 @@ function startBattle(kind, idx, carryHp){
     kind, idx, over:0, endT:0, slash:0,
     hp: carryHp !== undefined ? carryHp : heroMaxHp(),
     maxHp:heroMaxHp(), atkCd:0.3,
+    gauge: carryGauge || 0, invulnT: 0, ultFx: 0,
     projs: [], aoes: [],
     enemies: defs.map((d,i)=>({...d,
       x:640+((i*95)%230), y:150+i*105,
@@ -1742,6 +1747,34 @@ function startBattle(kind, idx, carryHp){
   else toast(`⚔️ ${defs[0].n} が立ちはだかる!`, true);
 }
 function updatePotionBtn(){ $$("btnPotion").textContent = `🧪 回復 ×${S.rpg.potions}(Q)`; }
+function updateUltBtn(){
+  const b = $$("btnUlt");
+  if(!b || !B) return;
+  const ready = B.gauge >= 100;
+  b.textContent = ready ? "💥 必殺技!(E)" : `💥 ${Math.floor(B.gauge)}%`;
+  b.style.background = ready ? "#ffd257" : "";
+  b.style.color = ready ? "#4a3708" : "";
+}
+// 必殺技「フルスロットル」:周囲大ダメージ+無敵1.2秒
+function useUlt(){
+  if(mode!=="battle" || !B || B.over || B.gauge < 100) return;
+  B.gauge = 0;
+  B.invulnT = 1.2;
+  B.ultFx = 0.6;
+  const R = 210;
+  for(const e of B.enemies){
+    if(e.hp<=0) continue;
+    if(Math.hypot(e.x-player.x, e.y-player.y) < R + e.size){
+      const dmg = Math.round(heroAtk()*4*(0.9+Math.random()*0.2));
+      e.hp -= dmg;
+      pop(e.x, e.y-e.size-24, `-${dmg}`, "#7fd4ff");
+      if(e.hp<=0){ pop(e.x, e.y-10, "💥", "#fff"); confetti(e.x, e.y, 18); }
+    }
+  }
+  sfx("ult");
+  confetti(player.x, player.y, 40);
+  updateUltBtn();
+}
 function usePotion(){
   if(mode!=="battle" || !B || B.over || S.rpg.potions<=0 || B.hp>=B.maxHp) return;
   S.rpg.potions--;
@@ -1771,8 +1804,10 @@ function battleTick(dt){
   }else{
     moveToward(player, playerSpd(), dt);
   }
-  // ボスのセリフタイマー
+  // ボスのセリフタイマー・無敵時間・必殺技エフェクト
   if(B.speechT > 0) B.speechT -= dt;
+  if(B.invulnT > 0) B.invulnT -= dt;
+  if(B.ultFx > 0) B.ultFx -= dt;
   // 自動攻撃(範囲内の敵をまとめて斬る)
   B.atkCd -= dt; B.slash -= dt;
   const rng = atkRange();
@@ -1784,16 +1819,32 @@ function battleTick(dt){
         tgt.hp -= dmg;
         pop(tgt.x, tgt.y-tgt.size-22, `-${dmg}`, "#ffd257");
         if(tgt.hp<=0){ pop(tgt.x, tgt.y-10, "💥", "#fff"); confetti(tgt.x, tgt.y, 18); }
+        B.gauge = Math.min(100, B.gauge + 7);
       }
       B.slash = 0.15;
       sfx("hit");
       B.atkCd = ATK_CD;
+      updateUltBtn();
     }
   }
   // 敵AI(近接:追いかけて殴る / 遠距離:距離をとって撃つ)
   for(const e of B.enemies){
     if(e.hp<=0) continue;
     const dx = player.x-e.x, dy = player.y-e.y, d = Math.hypot(dx,dy) || 1;
+    // ⚡第2形態(HP50%以下で覚醒:セリフが変わり攻撃が激化)
+    if(e.quote2 && !e.p2 && e.hp <= e.maxHp*0.5){
+      e.p2 = true;
+      e.spd *= 1.25;
+      e.atk = Math.round(e.atk*1.25);
+      if(e.chCd) e.chCd *= 0.6;
+      if(e.shoot) e.shoot = {...e.shoot, cd: e.shoot.cd*0.65};
+      if(e.spT !== undefined) e.spT = Math.min(e.spT, 1);
+      if(e.chT !== undefined) e.chT = Math.min(e.chT, 1);
+      B.speechT = 3.0; B.speechText = e.quote2;
+      toast(`⚡ ${e.n} の様子が変わった…!`, true);
+      sfx("boom");
+      confetti(e.x, e.y, 25);
+    }
     // 突進(四天王・魔王はデフォルトで持っている)
     if(e.chCd){
       if(e.chT === undefined) e.chT = 2 + Math.random()*2;
@@ -1846,14 +1897,16 @@ function battleTick(dt){
     }else if(d > 34){
       e.x += dx/d*e.spd*dt; e.y += dy/d*e.spd*dt;
     }
-    // 近接攻撃
+    // 近接攻撃(無敵中はノーダメージ)
     e.cd -= dt;
-    if(d < 48 && e.cd <= 0){
+    if(d < 48 && e.cd <= 0 && B.invulnT <= 0){
       const dmg = Math.max(1, Math.round((e.atk-heroDef())*(0.9+Math.random()*0.2)));
       B.hp -= dmg;
+      B.gauge = Math.min(100, B.gauge + 2);
       pop(player.x, player.y-55, `-${dmg}`, "#ff7b7b");
       sfx("hurt");
       e.cd = 1.15;
+      updateUltBtn();
     }
     // 遠距離攻撃(弾を発射)
     if(e.shoot){
@@ -1872,12 +1925,14 @@ function battleTick(dt){
   for(let i=B.projs.length-1;i>=0;i--){
     const p2 = B.projs[i];
     p2.x += p2.vx*dt; p2.y += p2.vy*dt; p2.age += dt;
-    if(Math.hypot(p2.x-player.x, p2.y-player.y) < 22){
+    if(B.invulnT <= 0 && Math.hypot(p2.x-player.x, p2.y-player.y) < 22){
       const dmg = Math.max(1, Math.round((p2.atk-heroDef())*(0.9+Math.random()*0.2)));
       B.hp -= dmg;
+      B.gauge = Math.min(100, B.gauge + 2);
       pop(player.x, player.y-55, `-${dmg}`, "#ff7b7b");
       sfx("hurt");
       B.projs.splice(i,1);
+      updateUltBtn();
       continue;
     }
     if(p2.age > 4 || p2.x < -30 || p2.x > W+30 || p2.y < -30 || p2.y > H+30) B.projs.splice(i,1);
@@ -1887,10 +1942,12 @@ function battleTick(dt){
     const a = B.aoes[i];
     a.t -= dt;
     if(a.t <= 0){
-      if(Math.hypot(player.x-a.x, player.y-a.y) < a.r){
+      if(B.invulnT <= 0 && Math.hypot(player.x-a.x, player.y-a.y) < a.r){
         const dmg = Math.max(1, Math.round((a.atk-heroDef())*(0.9+Math.random()*0.2)));
         B.hp -= dmg;
+        B.gauge = Math.min(100, B.gauge + 2);
         pop(player.x, player.y-55, `-${dmg}`, "#ff7b7b");
+        updateUltBtn();
       }
       confetti(a.x, a.y, 30);
       sfx("boom");
@@ -1914,10 +1971,11 @@ function finishBattle(){
         toast(`🗼 ${B.idx}階 制覇! +¥${fmt(reward)}`);
       }
       const carry = Math.min(heroMaxHp(), Math.round(B.hp + heroMaxHp()*0.25));
+      const carryG = B.gauge;
       const next = B.idx + 1;
       B = null;
       save(); updateHud();
-      startBattle("tower", next, carry);
+      startBattle("tower", next, carry, carryG);
     }else{
       toast(`💀 ${B.idx}階で力尽きた…(最高記録 ${S.towerBest}階)`);
       B = null;
@@ -2088,6 +2146,14 @@ function drawBattle(t){
   // 敵
   for(const e of B.enemies){
     if(e.hp<=0) continue;
+    // ⚡第2形態の赤いオーラ
+    if(e.p2){
+      const ag = ctx.createRadialGradient(e.x, e.y, 5, e.x, e.y, e.size*2.6);
+      ag.addColorStop(0, `rgba(255,60,60,${(0.28+0.14*Math.sin(t*7)).toFixed(2)})`);
+      ag.addColorStop(1, "rgba(255,60,60,0)");
+      ctx.fillStyle = ag;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.size*2.6, 0, Math.PI*2); ctx.fill();
+    }
     const im = bossImg(e.imgKey);
     let off = e.size;
     if(im){
@@ -2110,7 +2176,7 @@ function drawBattle(t){
     ctx.fillRect(e.x-bw/2, e.y-off-14, bw*Math.max(0, e.hp/e.maxHp), 7);
     ctx.fillStyle = th==="snow" ? "#1b2230" : "#fff"; ctx.font = "bold 10px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(e.title ? `${e.title} ${e.n}` : e.n, e.x, e.y-off-18);
+    ctx.fillText(`${e.p2 ? "⚡" : ""}${e.title ? `${e.title} ${e.n}` : e.n}${e.p2 ? "(第2形態)" : ""}`, e.x, e.y-off-18);
   }
   // 攻撃範囲サークル(常時うっすら表示)
   const rng = atkRange();
@@ -2145,6 +2211,22 @@ function drawBattle(t){
     ctx.fillText(p2.ic, 0, 6);
     ctx.restore();
   }
+  // 必殺技の衝撃波
+  if(B.ultFx > 0){
+    const pr = (0.6 - B.ultFx) / 0.6;
+    ctx.strokeStyle = `rgba(127,212,255,${(1-pr).toFixed(2)})`;
+    ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.arc(player.x, player.y, 30 + pr*200, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${((1-pr)*0.6).toFixed(2)})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(player.x, player.y, 15 + pr*160, 0, Math.PI*2); ctx.stroke();
+  }
+  // 無敵オーラ
+  if(B.invulnT > 0){
+    ctx.strokeStyle = `rgba(255,210,87,${(0.45+0.4*Math.sin(t*14)).toFixed(2)})`;
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(player.x, player.y-8, 34, 0, Math.PI*2); ctx.stroke();
+  }
   // 主人公+武器
   drawPerson(player.x, player.y, {scale:1.15, walk:player.walk, isPlayer:true});
   ctx.font = "18px sans-serif"; ctx.textAlign = "center";
@@ -2176,6 +2258,17 @@ function drawBattle(t){
   ctx.fillRect(20, 58, 190*Math.max(0, B.hp/B.maxHp), 14);
   ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "left";
   ctx.fillText(`HP ${Math.max(0,Math.ceil(B.hp))}/${B.maxHp}`, 22, 76);
+  // 必殺技ゲージ
+  ctx.fillStyle = "rgba(0,0,0,.55)";
+  ctx.beginPath(); ctx.roundRect(14, 84, 240, 26, 8); ctx.fill();
+  ctx.fillStyle = "#3a4a66";
+  ctx.fillRect(20, 89, 190, 8);
+  const gFull = B.gauge >= 100;
+  ctx.fillStyle = gFull ? `rgba(255,210,87,${(0.7+0.3*Math.sin(t*8)).toFixed(2)})` : "#7fd4ff";
+  ctx.fillRect(20, 89, 190*Math.min(1, B.gauge/100), 8);
+  ctx.fillStyle = gFull ? "#ffd257" : "rgba(255,255,255,.75)";
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillText(gFull ? "💥 必殺技 準備完了!(Eキー)" : `必殺技ゲージ ${Math.floor(B.gauge)}%`, 22, 106);
   ctx.textAlign = "center";
   // ピンチ演出
   if(B.hp/B.maxHp < 0.3 && !B.over){
