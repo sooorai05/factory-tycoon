@@ -192,32 +192,32 @@ const DOCK = {x:895, y:275, w:70, h:150}; // 出荷口
 
 // ---------- 実績 ----------
 const ACH = [
-  {id:"m1",    ic:"🔩", name:"はじめの一歩",     desc:"マシンを1台設置する",        reward:200,    cond:c=>c.machines>=1},
-  {id:"m5",    ic:"🏭", name:"工場長",           desc:"マシンを5台設置する",        reward:3000,   cond:c=>c.machines>=5},
-  {id:"m12",   ic:"🌆", name:"フル稼働",         desc:"マシンを12台設置する",       reward:80000,  cond:c=>c.machines>=12},
-  {id:"tAll",  ic:"📚", name:"コレクター",       desc:"全種類のマシンを所有する",   reward:100000, cond:c=>c.types>=TYPES.length},
-  {id:"lv10",  ic:"⬆️", name:"改造マニア",       desc:"マシンをLv10まで強化する",   reward:15000,  cond:c=>c.maxLv>=10},
-  {id:"money1",ic:"🐖", name:"貯金箱",           desc:"所持金 ¥10,000 を達成",      reward:1000,   cond:c=>S.money>=10000},
-  {id:"money2",ic:"💰", name:"金庫",             desc:"所持金 ¥100,000 を達成",     reward:8000,   cond:c=>S.money>=100000},
-  {id:"money3",ic:"👑", name:"大富豪",           desc:"所持金 ¥1,000,000 を達成",   reward:50000,  cond:c=>S.money>=1000000},
-  {id:"earn1", ic:"📈", name:"売れっ子",         desc:"累計売上 ¥50,000 を達成",    reward:5000,   cond:c=>S.totalEarned>=50000},
-  {id:"earn2", ic:"🚀", name:"億万長者への道",   desc:"累計売上 ¥5,000,000 を達成", reward:200000, cond:c=>S.totalEarned>=5000000},
-  {id:"sell1", ic:"📦", name:"運び屋",           desc:"累計1,000個を出荷する",      reward:10000,  cond:c=>S.stats.itemsSold>=1000},
-  {id:"w1",    ic:"👷", name:"初めての部下",     desc:"作業員を1人雇う",            reward:800,    cond:c=>S.workers>=1},
-  {id:"w3",    ic:"🤝", name:"チームワーク",     desc:"作業員を3人雇う",            reward:8000,   cond:c=>S.workers>=3},
-  {id:"fac3",  ic:"🏗️", name:"リフォーム",       desc:"工場をレベル3に拡張する",    reward:5000,   cond:c=>S.facLv>=3},
-  {id:"fac5",  ic:"🏰", name:"夢の城",           desc:"工場を最大レベルに拡張する", reward:150000, cond:c=>S.facLv>=FAC_MAX},
-  {id:"cap5",  ic:"🎒", name:"力持ち",           desc:"運搬キャパをLv5にする",      reward:3000,   cond:c=>S.capLv>=5},
-  {id:"wpro",  ic:"🦾", name:"精鋭部隊",         desc:"スーパー作業員を雇う",       reward:30000,  cond:c=>S.proWorkers>=1},
-  {id:"earn3", ic:"🌟", name:"伝説の社長",       desc:"累計売上 ¥50,000,000 を達成",reward:2000000,cond:c=>S.totalEarned>=50000000},
-  {id:"rpg1",  ic:"🗡️", name:"初陣",             desc:"ステージ1をクリアする",      reward:3000,   cond:c=>S.rpg.stage>=1},
-  {id:"rpg7",  ic:"🏔️", name:"雪原を越えて",     desc:"ステージ7をクリアする",      reward:100000, cond:c=>S.rpg.stage>=7},
-  {id:"kings", ic:"👑", name:"四天王撃破",       desc:"四天王を全員倒す",           reward:1000000,cond:c=>S.rpg.kings.every(k=>k)},
-  {id:"hero",  ic:"🌈", name:"世界を救った!",   desc:"魔王を倒す",                 reward:10000000,cond:c=>S.rpg.demon},
-  {id:"reb1",  ic:"🔄", name:"新たな旅路",       desc:"転生する",                   reward:50000,  cond:c=>S.reborn>=1},
-  {id:"reb3",  ic:"🌟", name:"輪廻の覇者",       desc:"転生を3回行う",              reward:5000000,cond:c=>S.reborn>=3},
-  {id:"twr10", ic:"🗼", name:"挑戦者",           desc:"無限の塔で10階に到達する",   reward:300000, cond:c=>S.towerBest>=10},
-  {id:"twr25", ic:"🌌", name:"天を突く者",       desc:"無限の塔で25階に到達する",   reward:5000000,cond:c=>S.towerBest>=25},
+  {id:"m1",    ic:"🔩", name:"はじめの一歩",     desc:"マシンを1台設置する",        reward:300,    cond:c=>c.machines>=1},
+  {id:"m5",    ic:"🏭", name:"工場長",           desc:"マシンを5台設置する",        reward:4500,   cond:c=>c.machines>=5},
+  {id:"m12",   ic:"🌆", name:"フル稼働",         desc:"マシンを12台設置する",       reward:120000, cond:c=>c.machines>=12},
+  {id:"tAll",  ic:"📚", name:"コレクター",       desc:"全種類のマシンを所有する",   reward:150000, cond:c=>c.types>=TYPES.length},
+  {id:"lv10",  ic:"⬆️", name:"改造マニア",       desc:"マシンをLv10まで強化する",   reward:22500,  cond:c=>c.maxLv>=10},
+  {id:"money1",ic:"🐖", name:"貯金箱",           desc:"所持金 ¥10,000 を達成",      reward:1500,   cond:c=>S.money>=10000},
+  {id:"money2",ic:"💰", name:"金庫",             desc:"所持金 ¥100,000 を達成",     reward:12000,  cond:c=>S.money>=100000},
+  {id:"money3",ic:"👑", name:"大富豪",           desc:"所持金 ¥1,000,000 を達成",   reward:75000,  cond:c=>S.money>=1000000},
+  {id:"earn1", ic:"📈", name:"売れっ子",         desc:"累計売上 ¥50,000 を達成",    reward:7500,   cond:c=>S.totalEarned>=50000},
+  {id:"earn2", ic:"🚀", name:"億万長者への道",   desc:"累計売上 ¥5,000,000 を達成", reward:300000, cond:c=>S.totalEarned>=5000000},
+  {id:"sell1", ic:"📦", name:"運び屋",           desc:"累計1,000個を出荷する",      reward:15000,  cond:c=>S.stats.itemsSold>=1000},
+  {id:"w1",    ic:"👷", name:"初めての部下",     desc:"作業員を1人雇う",            reward:1200,   cond:c=>S.workers>=1},
+  {id:"w3",    ic:"🤝", name:"チームワーク",     desc:"作業員を3人雇う",            reward:12000,  cond:c=>S.workers>=3},
+  {id:"fac3",  ic:"🏗️", name:"リフォーム",       desc:"工場をレベル3に拡張する",    reward:7500,   cond:c=>S.facLv>=3},
+  {id:"fac5",  ic:"🏰", name:"夢の城",           desc:"工場を最大レベルに拡張する", reward:225000, cond:c=>S.facLv>=FAC_MAX},
+  {id:"cap5",  ic:"🎒", name:"力持ち",           desc:"運搬キャパをLv5にする",      reward:4500,   cond:c=>S.capLv>=5},
+  {id:"wpro",  ic:"🦾", name:"精鋭部隊",         desc:"スーパー作業員を雇う",       reward:45000,  cond:c=>S.proWorkers>=1},
+  {id:"earn3", ic:"🌟", name:"伝説の社長",       desc:"累計売上 ¥50,000,000 を達成",reward:3000000,cond:c=>S.totalEarned>=50000000},
+  {id:"rpg1",  ic:"🗡️", name:"初陣",             desc:"ステージ1をクリアする",      reward:4500,   cond:c=>S.rpg.stage>=1},
+  {id:"rpg7",  ic:"🏔️", name:"雪原を越えて",     desc:"ステージ7をクリアする",      reward:150000, cond:c=>S.rpg.stage>=7},
+  {id:"kings", ic:"👑", name:"四天王撃破",       desc:"四天王を全員倒す",           reward:1500000,cond:c=>S.rpg.kings.every(k=>k)},
+  {id:"hero",  ic:"🌈", name:"世界を救った!",   desc:"魔王を倒す",                 reward:15000000,cond:c=>S.rpg.demon},
+  {id:"reb1",  ic:"🔄", name:"新たな旅路",       desc:"転生する",                   reward:75000,  cond:c=>S.reborn>=1},
+  {id:"reb3",  ic:"🌟", name:"輪廻の覇者",       desc:"転生を3回行う",              reward:7500000,cond:c=>S.reborn>=3},
+  {id:"twr10", ic:"🗼", name:"挑戦者",           desc:"無限の塔で10階に到達する",   reward:450000, cond:c=>S.towerBest>=10},
+  {id:"twr25", ic:"🌌", name:"天を突く者",       desc:"無限の塔で25階に到達する",   reward:7500000,cond:c=>S.towerBest>=25},
 ];
 
 // ---------- 状態 ----------
@@ -436,7 +436,7 @@ const BGM_TRACKS = {
 let bgmTrack = "factory";
 function desiredTrack(){
   if(typeof mode === "undefined") return "factory";
-  if(mode==="title" || mode==="story") return "story";
+  if(mode==="title" || mode==="story" || mode==="epilogue") return "story";
   if(mode==="worldmap") return "map";
   if(mode==="castle") return "castle";
   if(mode==="battle") return (typeof B !== "undefined" && B && B.kind !== "stage") ? "castle" : "map";
@@ -813,6 +813,7 @@ function onTap(e){
   const p = canvasPos(e);
   if(mode==="title"){ startFromTitle(); e.preventDefault(); return; }
   if(mode==="story"){ endStory(); e.preventDefault(); return; }
+  if(mode==="epilogue"){ setMode("castle"); e.preventDefault(); return; }
   if(mode==="worldmap"){ mapTap(p); e.preventDefault(); return; }
   if(mode==="castle"){ castleTap(p); e.preventDefault(); return; }
   if(mode==="battle"){
@@ -967,6 +968,7 @@ function drawDeco(t){
 function draw(t){
   if(mode==="title"){ drawTitle(t); return; }
   if(mode==="story"){ drawStory(t); return; }
+  if(mode==="epilogue"){ drawEpilogue(t); return; }
   if(mode==="worldmap"){ drawMap(t); return; }
   if(mode==="battle"){ drawBattle(t); return; }
   if(mode==="castle"){ drawCastle(t); return; }
@@ -1310,6 +1312,9 @@ function tick(dt, t){
   }else if(mode==="story"){
     storyT += dt;
     if(storyDone()) endStory();
+  }else if(mode==="epilogue"){
+    epiT += dt;
+    if(epiDone()) setMode("castle");
   }
 
   // 作業員AI(それぞれ別のマシンを担当して分担する)
@@ -1510,6 +1515,88 @@ function drawTitle(t){
   ctx.fillStyle = "rgba(255,255,255,.4)"; ctx.font = "12px sans-serif";
   ctx.fillText("セーブデータは自動で読み込まれます", W/2, 500);
 }
+// ---------- エピローグ(魔王初討伐後に流れる後日談・スタッフロール) ----------
+let EPI = [], epiT = 0;
+function startEpilogue(){
+  const nm = (localStorage.getItem("factory-tycoon-name") || "名無しの社長");
+  EPI = [
+    "―― 魔王討伐から、数日後 ――",
+    "",
+    "世界に平和が戻った。",
+    "壊された街は、少しずつ直り始めている。",
+    "",
+    "四天王たちは、意外といいやつらだった。",
+    "",
+    "Gは今、うちの工場でアルバイトをしている。",
+    "……うるさい。",
+    "",
+    "T島は「世界最強メンタル講座」を開いて",
+    "大人気らしい。受講料は取るらしい。",
+    "",
+    "MD前衛は誘っても来なかった。",
+    "「ごめんけど、遠慮しとく」とのことだ。",
+    "",
+    "もこは自分が壊した街を、",
+    "自分の手で直して回っているそうだ。えらい。",
+    "",
+    "そして、魔王Miyaさん。",
+    "「ガチを出す前に負けたわ」と笑っていた。",
+    "いや、ガチ出してたよな……?",
+    "",
+    "俺はというと、今日も工場でネジを作っている。",
+    "世界を救っても、納期は待ってくれないからだ。",
+    "",
+    "それでも――",
+    "もし、また世界が危なくなったら。",
+    "俺はこの工場から、何度だって行くだろう。",
+    "",
+    "― 完 ―",
+    "",
+    "",
+    "■ STAFF ■",
+    "",
+    `主人公:${nm}`,
+    "四天王:G / T島 / MD前衛 / もこ",
+    "魔王:Miyaさん",
+    `製作総指揮:${nm}`,
+    "",
+    "そして、遊んでくれたきみ。",
+    "",
+    "―― 工場勤務でも世界を救いたい ――",
+  ];
+  epiT = 0;
+  setMode("epilogue");
+}
+function epiDone(){ return epiT * STORY_SPEED > H + EPI.length * STORY_LH + 140; }
+function drawEpilogue(t){
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#0a0d16"); g.addColorStop(0.7, "#131a2c"); g.addColorStop(1, "#3a2a1a");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for(let i=0;i<30;i++){
+    const sx = (i*233)%W, sy = (i*149)%(H*0.8);
+    ctx.globalAlpha = 0.2 + 0.4*(Math.sin(t*1.5+i*2.1)+1)/2;
+    ctx.fillStyle = "#ffe9c4";
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  const y0 = H + 40 - epiT*STORY_SPEED;
+  ctx.textAlign = "center";
+  for(let i=0;i<EPI.length;i++){
+    const y = y0 + i*STORY_LH;
+    if(y < -50 || y > H+50) continue;
+    const fade = Math.max(0, Math.min(1, (y-30)/110)) * Math.max(0, Math.min(1, (H+20-y)/60));
+    ctx.globalAlpha = fade;
+    const last = i === EPI.length-1;
+    const staff = EPI[i].startsWith("■") || EPI[i].includes(":");
+    ctx.fillStyle = last ? "#ffd257" : staff ? "#ffe9a0" : "#e8eefb";
+    ctx.font = last ? "bold 26px 'Hiragino Sans','Yu Gothic UI',sans-serif" : "20px 'Hiragino Sans','Yu Gothic UI',sans-serif";
+    ctx.fillText(EPI[i], W/2, y);
+  }
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = "#9fb0cc"; ctx.font = "12px sans-serif"; ctx.textAlign = "right";
+  ctx.fillText("クリックでスキップ ▶", W-20, H-16);
+  ctx.globalAlpha = 1;
+}
 function drawStory(t){
   ctx.fillStyle = "#05070c"; ctx.fillRect(0, 0, W, H);
   for(let i=0;i<30;i++){
@@ -1573,15 +1660,15 @@ const EN = {
   dknight:{n:"デスナイト",       ic:"🧟", hp:1600, atk:105, spd:70,  size:22},
 };
 const STAGES = [
-  {name:"草原のはずれ", theme:"grass", foes:["slime","slime"],              reward:1500},
-  {name:"みどりの丘",   theme:"grass", foes:["slime","wolf","garcher"],     reward:3750},
-  {name:"森の入り口",   theme:"grass", foes:["orc","orc","garcher"],        reward:9000},
-  {name:"雪原の道",     theme:"snow",  foes:["swolf","swolf","swolf"],      reward:18750},
-  {name:"吹雪の谷",     theme:"snow",  foes:["yeti","switch_"],             reward:37500},
-  {name:"凍てつく湖",   theme:"snow",  foes:["igolem","igolem","switch_"],  reward:75000},
-  {name:"白銀の峠",     theme:"snow",  foes:["fdragon","swolf","switch_"],  reward:150000},
-  {name:"魔界の門",     theme:"dark",  foes:["demon","demon","warlock"],    reward:300000},
-  {name:"奈落の断崖",   theme:"dark",  foes:["garg","dknight","warlock"],   reward:600000},
+  {name:"草原のはずれ", theme:"grass", foes:["slime","slime"],              reward:3000},
+  {name:"みどりの丘",   theme:"grass", foes:["slime","wolf","garcher"],     reward:7500},
+  {name:"森の入り口",   theme:"grass", foes:["orc","orc","garcher"],        reward:18000},
+  {name:"雪原の道",     theme:"snow",  foes:["swolf","swolf","swolf"],      reward:37500},
+  {name:"吹雪の谷",     theme:"snow",  foes:["yeti","switch_"],             reward:75000},
+  {name:"凍てつく湖",   theme:"snow",  foes:["igolem","igolem","switch_"],  reward:150000},
+  {name:"白銀の峠",     theme:"snow",  foes:["fdragon","swolf","switch_"],  reward:300000},
+  {name:"魔界の門",     theme:"dark",  foes:["demon","demon","warlock"],    reward:600000},
+  {name:"奈落の断崖",   theme:"dark",  foes:["garg","dknight","warlock"],   reward:1200000},
 ];
 // sp: 固有特殊攻撃 "ring"=全方位弾幕 / "blink"=瞬間移動 / "aoe"=周囲大爆発
 // chCd: 突進のクールタイム(四天王・魔王は全員デフォルトで突進持ち。GINIは突進の名手で高頻度)
@@ -1625,7 +1712,7 @@ for(let i=0;i<10;i++){
 function setMode(m){
   mode = m;
   closeModal();
-  $$("hud").style.visibility = (m==="title" || m==="story") ? "hidden" : "visible";
+  $$("hud").style.visibility = (m==="title" || m==="story" || m==="epilogue") ? "hidden" : "visible";
   $$("btnBack").style.display = (m==="worldmap" || m==="castle") ? "block" : "none";
   $$("btnBack").textContent = m==="castle" ? "🗺️ マップに戻る" : "🏭 工場に戻る";
   $$("battleBtns").style.display = m==="battle" ? "flex" : "none";
@@ -1985,6 +2072,7 @@ function finishBattle(){
     return;
   }
   const dest = B.kind==="stage" ? "worldmap" : "castle";
+  let playEpilogue = false;
   if(win){
     let reward = 0;
     if(B.kind==="stage"){
@@ -2000,6 +2088,7 @@ function finishBattle(){
       S.rpg.demon = true;
       reward = Math.round(DEMON.reward * (first ? 1 : 0.05) * rebornRewardMul());
       toast("🌈 魔王を倒した!世界は救われた!!", true);
+      if(first) playEpilogue = true;
       if(!S.towerUnlocked){
         S.towerUnlocked = true;
         setTimeout(()=>toast("🗼 マップに「無限の塔」が現れた! 🔄 ショップで「転生」も解放!", true), 1800);
@@ -2012,7 +2101,8 @@ function finishBattle(){
     toast("💀 やられてしまった…工場で稼いで装備を整えよう");
   }
   B = null;
-  setMode(dest);
+  if(playEpilogue) startEpilogue();
+  else setMode(dest);
   save(); updateHud();
 }
 
